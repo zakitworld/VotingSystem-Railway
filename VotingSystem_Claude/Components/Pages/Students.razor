@@ -1,0 +1,233 @@
+﻿@page "/students"
+@using VotingSystem_Claude.Services
+@using VotingSystem_Claude.Services.Interfaces
+@using VotingSystem_Claude.Models
+@inject IStudentService StudentService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Students</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3>Students Management</h3>
+                <button class="btn btn-primary" @onclick="ShowCreateModal">
+                    <i class="fas fa-plus"></i> Add New Student
+                </button>
+            </div>
+
+            @if (loading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }
+            else if (students?.Any() == true)
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Full Name</th>
+                                <th>Class</th>
+                                <th>House</th>
+                                <th>Gender</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var student in students)
+                            {
+                                <tr>
+                                    <td>@student.StudentId</td>
+                                    <td>@student.FullName</td>
+                                    <td>@student.Class</td>
+                                    <td>@student.House</td>
+                                    <td>@student.Gender</td>
+                                    <td>@student.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary me-2"
+                                                @onclick="() => ShowEditModal(student)">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                @onclick="() => DeleteStudent(student.Id)">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No students found. Click "Add New Student" to get started.
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditing ? "Edit Student" : "Create New Student")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <EditForm Model="currentStudent" OnValidSubmit="SaveStudent">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Student ID</label>
+                            <InputText class="form-control" @bind-Value="currentStudent.StudentId" />
+                            <ValidationMessage For="@(() => currentStudent.StudentId)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Full Name</label>
+                            <InputText class="form-control" @bind-Value="currentStudent.FullName" />
+                            <ValidationMessage For="@(() => currentStudent.FullName)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Class</label>
+                            <InputText class="form-control" @bind-Value="currentStudent.Class" />
+                            <ValidationMessage For="@(() => currentStudent.Class)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">House</label>
+                            <InputText class="form-control" @bind-Value="currentStudent.House" />
+                            <ValidationMessage For="@(() => currentStudent.House)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Gender</label>
+                            <InputSelect class="form-select" @bind-Value="currentStudent.Gender">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            @(isEditing ? "Update" : "Create") Student
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Student> students = new();
+    private Student currentStudent = new();
+    private bool showModal = false;
+    private bool isEditing = false;
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStudents();
+    }
+
+    private async Task LoadStudents()
+    {
+        try
+        {
+            loading = true;
+            students = await StudentService.GetAllStudentsAsync();
+        }
+        catch (Exception ex)
+        {
+            // Handle error (you might want to show a toast notification)
+            await JSRuntime.InvokeVoidAsync("console.error", "Error loading students: " + ex.Message);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        currentStudent = new Student();
+        isEditing = false;
+        showModal = true;
+    }
+
+    private void ShowEditModal(Student student)
+    {
+        currentStudent = new Student
+        {
+            Id = student.Id,
+            StudentId = student.StudentId,
+            FullName = student.FullName,
+            Class = student.Class,
+            House = student.House,
+            Gender = student.Gender
+        };
+        isEditing = true;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentStudent = new Student();
+    }
+
+    private async Task SaveStudent()
+    {
+        try
+        {
+            if (isEditing)
+            {
+                await StudentService.UpdateStudentAsync(currentStudent);
+            }
+            else
+            {
+                await StudentService.CreateStudentAsync(currentStudent);
+            }
+
+            await LoadStudents();
+            CloseModal();
+
+            // Show success message
+            await JSRuntime.InvokeVoidAsync("alert",
+                $"Student {(isEditing ? "updated" : "created")} successfully!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Error: " + ex.Message);
+        }
+    }
+
+    private async Task DeleteStudent(int studentId)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this student?"))
+        {
+            try
+            {
+                await StudentService.DeleteStudentAsync(studentId);
+                await LoadStudents();
+                await JSRuntime.InvokeVoidAsync("alert", "Student deleted successfully!");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Error deleting student: " + ex.Message);
+            }
+        }
+    }
+}

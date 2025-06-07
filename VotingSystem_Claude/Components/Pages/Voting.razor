@@ -1,0 +1,392 @@
+﻿@page "/voting/{ElectionId:int}"
+@using VotingSystem_Claude.Services
+@using VotingSystem_Claude.Services.Interfaces
+@using VotingSystem_Claude.Models
+@using Microsoft.AspNetCore.Components
+@using Microsoft.JSInterop
+@inject IElectionService ElectionService
+@inject IVotingService VotingService
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="container mt-4">
+    @if (_loading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_voter == null)
+    {
+        <div class="alert alert-danger">
+            <h4>Access Denied</h4>
+            <p>You must be logged in to vote.</p>
+            <button class="btn btn-primary" @onclick="GoHome">Go to Login</button>
+        </div>
+    }
+    else if (_election == null)
+    {
+        <div class="alert alert-warning">
+            <h4>Election Not Found</h4>
+            <p>The requested election could not be found or is not active.</p>
+            <button class="btn btn-primary" @onclick="GoHome">Go Home</button>
+        </div>
+    }
+    else if (_hasAlreadyVoted)
+    {
+        <div class="alert alert-info">
+            <h4>Already Voted</h4>
+            <p>You have already cast your vote in this election.</p>
+            <button class="btn btn-primary" @onclick="GoHome">Go Home</button>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <!-- Election Details and Voting UI -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h3>@_election.Title</h3>
+                        <p class="mb-0">@_election.Description</p>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(_errorMessage))
+                        {
+                            <div class="alert alert-danger">@_errorMessage</div>
+                        }
+
+                        @if (_election.Positions?.Any() == true)
+                        {
+                            @foreach (var position in _election.Positions.OrderBy(p => p.DisplayOrder))
+                            {
+                                <div class="position-section mb-5">
+                                    <h4 class="border-bottom pb-2">@position.Title</h4>
+
+                                    @if (!string.IsNullOrEmpty(position.Description))
+                                    {
+                                        <p class="text-muted">@position.Description</p>
+                                    }
+
+                                    @if (position.Candidates?.Any() == true)
+                                    {
+                                        <div class="row">
+                                            @foreach (var candidate in position.Candidates)
+                                            {
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="card candidate-card @(IsSelected(position.Id, candidate.Id) ? "border-primary bg-light" : "")">
+                                                        <div class="card-body">
+                                                            <div class="d-flex align-items-center">
+                                                                @if (position.MaxSelectableOptions == 1)
+                                                                {
+                                                                    <input type="radio"
+                                                                           name="position_@position.Id"
+                                                                           value="@candidate.Id"
+                                                                           checked="@IsSelected(position.Id, candidate.Id)"
+                                                                           @onchange="@(() => SelectCandidate(position.Id, candidate.Id))"
+                                                                           class="form-check-input me-3" />
+                                                                }
+                                                                else
+                                                                {
+                                                                    <input type="checkbox"
+                                                                           value="@candidate.Id"
+                                                                           checked="@IsSelected(position.Id, candidate.Id)"
+                                                                           @onchange="@((e) => ToggleCandidate(position.Id, candidate.Id, (bool)e.Value))"
+                                                                           class="form-check-input me-3" />
+                                                                }
+
+                                                                <div class="flex-grow-1">
+                                                                    @if (!string.IsNullOrEmpty(candidate.ImagePath))
+                                                                    {
+                                                                        <img src="@candidate.ImagePath"
+                                                                             alt="@candidate.FullName"
+                                                                             class="candidate-image rounded-circle me-3"
+                                                                             style="width: 50px; height: 50px; object-fit: cover;" />
+                                                                    }
+
+                                                                    <div>
+                                                                        <h6 class="mb-1">@candidate.FullName</h6>
+                                                                        @if (!string.IsNullOrEmpty(candidate.Class))
+                                                                        {
+                                                                            <small class="text-muted">Class: @candidate.Class</small>
+                                                                        }
+                                                                        @if (!string.IsNullOrEmpty(candidate.ManifestoSummary))
+                                                                        {
+                                                                            <p class="small mt-2">@candidate.ManifestoSummary</p>
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="alert alert-warning">No candidates available for this position.</div>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Card -->
+            <div class="col-md-4">
+                <div class="card sticky-top">
+                    <div class="card-header">
+                        <h5>Voting Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <strong>Voter:</strong> @_voter.Student.FullName<br />
+                            <strong>Class:</strong> @_voter.Student.Class
+                        </div>
+
+                        <h6>Your Selections:</h6>
+                        @if (_selectedCandidates.Any())
+                        {
+                            @foreach (var selection in _selectedCandidates)
+                            {
+                                var position = _election.Positions.FirstOrDefault(p => p.Id == selection.Key);
+                                if (position != null)
+                                {
+                                    <div class="mb-2">
+                                        <strong>@position.Title:</strong><br />
+                                        @foreach (var candidateId in selection.Value)
+                                        {
+                                            var candidate = position.Candidates?.FirstOrDefault(c => c.Id == candidateId);
+                                            if (candidate != null)
+                                            {
+                                                <small class="text-primary">• @candidate.FullName</small>
+                        
+                                                <br />
+                                            }
+                                        }
+                                    </div>
+                                }
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted">No selections made yet.</p>
+                        }
+
+                        <hr />
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-success btn-lg"
+                                    @onclick="SubmitVotes"
+                                    disabled="@(!CanSubmitVotes() || _submitting)">
+                                @if (_submitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                }
+                                Submit Votes
+                            </button>
+                            <button class="btn btn-outline-secondary" @onclick="GoHome">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int ElectionId { get; set; }
+
+    private Models.Voter _voter;
+    private Election _election;
+    private Dictionary<int, List<int>> _selectedCandidates = new();
+    private bool _submitting;
+    private string _errorMessage;
+    private bool _loading = true;
+    private bool _hasAlreadyVoted;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _voter = await AuthService.GetAuthenticatedVoterAsync();
+            if (_voter == null)
+            {
+                NavigationManager.NavigateTo("/");
+                return;
+            }
+
+            await LoadElectionData();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "An error occurred while loading the election data.";
+            Console.WriteLine($"Error in OnInitializedAsync: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadElectionData()
+    {
+        _election = await ElectionService.GetElectionByIdAsync(ElectionId);
+        if (_election == null)
+        {
+            _errorMessage = "Election not found.";
+            return;
+        }
+
+        if (!_election.IsActive || _election.StartDate > DateTime.UtcNow || _election.EndDate < DateTime.UtcNow)
+        {
+            _errorMessage = "This election is not currently active.";
+            return;
+        }
+
+        if (await VotingService.HasVotedInElectionAsync(_voter.Id, ElectionId))
+        {
+            _errorMessage = "You have already voted in this election.";
+            return;
+        }
+
+        // Initialize selected candidates dictionary
+        foreach (var position in _election.Positions)
+        {
+            _selectedCandidates[position.Id] = new List<int>();
+        }
+    }
+
+    private void SelectCandidate(int positionId, int candidateId)
+    {
+        _selectedCandidates[positionId] = new List<int> { candidateId };
+    }
+
+    private void ToggleCandidate(int positionId, int candidateId, bool isSelected)
+    {
+        if (!_selectedCandidates.ContainsKey(positionId))
+        {
+            _selectedCandidates[positionId] = new List<int>();
+        }
+
+        var position = _election.Positions.FirstOrDefault(p => p.Id == positionId);
+        if (position == null) return;
+
+        if (isSelected)
+        {
+            if (_selectedCandidates[positionId].Count < position.MaxSelectableOptions)
+            {
+                _selectedCandidates[positionId].Add(candidateId);
+            }
+        }
+        else
+        {
+            _selectedCandidates[positionId].Remove(candidateId);
+        }
+    }
+
+    private bool IsSelected(int positionId, int candidateId)
+    {
+        return _selectedCandidates.TryGetValue(positionId, out var selected) && selected.Contains(candidateId);
+    }
+
+    private bool CanSubmitVotes()
+    {
+        if (_election?.Positions == null) return false;
+
+        // Check if all required positions have selections
+        foreach (var position in _election.Positions)
+        {
+            if (!_selectedCandidates.ContainsKey(position.Id) || 
+                !_selectedCandidates[position.Id].Any())
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async Task SubmitVotes()
+    {
+        if (!CanSubmitVotes()) return;
+
+        _submitting = true;
+        _errorMessage = string.Empty;
+
+        try
+        {
+            // Validate election is still active
+            var currentElection = await ElectionService.GetElectionByIdAsync(ElectionId);
+            if (currentElection == null || !currentElection.IsActive || 
+                currentElection.StartDate > DateTime.UtcNow || 
+                currentElection.EndDate < DateTime.UtcNow)
+            {
+                _errorMessage = "This election is no longer active.";
+                return;
+            }
+
+            // Validate voter hasn't voted in the meantime
+            if (await VotingService.HasVotedInElectionAsync(_voter.Id, ElectionId))
+            {
+                _errorMessage = "You have already voted in this election.";
+                return;
+            }
+
+            var votes = _selectedCandidates
+                .Where(s => s.Value.Any())
+                .ToDictionary(s => s.Key, s => s.Value.First());
+
+            var success = await VotingService.SubmitVotesAsync(_voter.Id, votes, ElectionId);
+
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Your votes have been submitted successfully!");
+                NavigationManager.NavigateTo("/");
+            }
+            else
+            {
+                _errorMessage = "Failed to submit votes. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "An error occurred while submitting your votes.";
+            Console.WriteLine($"Error in SubmitVotes: {ex.Message}");
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void GoHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}
+
+<style>
+    .candidate-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .candidate-card:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .position-section {
+        border-left: 4px solid #0d6efd;
+        padding-left: 20px;
+    }
+
+    .sticky-top {
+        top: 20px;
+    }
+</style>

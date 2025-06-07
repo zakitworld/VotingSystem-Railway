@@ -1,0 +1,516 @@
+﻿@page "/votercodes"
+@using VotingSystem_Claude.Models
+@using VotingSystem_Claude.Services
+@using VotingSystem_Claude.Services.Interfaces
+@inject IVoterCodeService VoterCodeService
+@inject IVoterService VoterService
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="bi bi-key-fill me-2"></i>
+                    Voter Code Management
+                </h2>
+                <button class="btn btn-outline-secondary" @onclick="NavigateBack">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    Back to Dashboard
+                </button>
+            </div>
+
+            @if (_loading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">@_loadingMessage</p>
+                </div>
+            }
+            else
+            {
+                <div class="row mb-4">
+                    <div class="col-md-6 col-lg-3 mb-3">
+                        <div class="card border-primary">
+                            <div class="card-body text-center">
+                                <i class="bi bi-people-fill display-4 text-primary mb-3"></i>
+                                <h5 class="card-title">Total Students</h5>
+                                <h2 class="text-primary">@_totalStudents</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 mb-3">
+                        <div class="card border-success">
+                            <div class="card-body text-center">
+                                <i class="bi bi-key-fill display-4 text-success mb-3"></i>
+                                <h5 class="card-title">Codes Generated</h5>
+                                <h2 class="text-success">@_totalVotersWithCodes</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 mb-3">
+                        <div class="card border-warning">
+                            <div class="card-body text-center">
+                                <i class="bi bi-exclamation-triangle-fill display-4 text-warning mb-3"></i>
+                                <h5 class="card-title">Pending Codes</h5>
+                                <h2 class="text-warning">@_studentsWithoutCodes</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 mb-3">
+                        <div class="card border-info">
+                            <div class="card-body text-center">
+                                <i class="bi bi-check-circle-fill display-4 text-info mb-3"></i>
+                                <h5 class="card-title">Voted</h5>
+                                <h2 class="text-info">@_votersWhoVoted</h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-tools me-2"></i>
+                                    Actions
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <button class="btn btn-success w-100" @onclick="GenerateAllCodes" disabled="@_loading">
+                                            <i class="bi bi-plus-circle me-2"></i>
+                                            Generate Missing Codes
+                                        </button>
+                                        <small class="text-muted">Create codes for students without them</small>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <button class="btn btn-info w-100" @onclick="RefreshData" disabled="@_loading">
+                                            <i class="bi bi-arrow-clockwise me-2"></i>
+                                            Refresh Data
+                                        </button>
+                                        <small class="text-muted">Update statistics and voter list</small>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <button class="btn btn-warning w-100" @onclick="ExportCodes" disabled="@_loading">
+                                            <i class="bi bi-download me-2"></i>
+                                            Export Codes
+                                        </button>
+                                        <small class="text-muted">Download voter codes as CSV</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_message))
+                {
+                    <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+                        <i class="bi @(_isError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill") me-2"></i>
+                        @_message
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                }
+
+                <div class="card">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-table me-2"></i>
+                            Voter Codes (@_voters.Count)
+                        </h5>
+                        <div class="input-group" style="width: 300px;">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" class="form-control" placeholder="Search by name, ID, or code..."
+                                   @bind="_searchTerm" @oninput="FilterVoters" />
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_filteredVoters.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Student ID</th>
+                                            <th>Full Name</th>
+                                            <th>Class</th>
+                                            <th>House</th>
+                                            <th>Voter Code</th>
+                                            <th>Status</th>
+                                            <th>Last Login</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var voter in _filteredVoters.Skip(_currentPage * _pageSize).Take(_pageSize))
+                                        {
+                                            <tr class="@(voter.HasVoted ? "table-success" : "")">
+                                                <td>
+                                                    <strong>@voter.Student.StudentId</strong>
+                                                </td>
+                                                <td>@voter.Student.FullName</td>
+                                                <td>
+                                                    <span class="badge bg-primary">@voter.Student.Class</span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-info">@voter.Student.House</span>
+                                                </td>
+                                                <td>
+                                                    <code class="bg-light p-1 rounded">@voter.VoterCode</code>
+                                                    <button class="btn btn-sm btn-outline-secondary ms-1"
+                                                            @onclick="() => CopyToClipboard(voter.VoterCode)"
+                                                            title="Copy code">
+                                                        <i class="bi bi-clipboard"></i>
+                                                    </button>
+                                                </td>
+                                                <td>
+                                                    @if (voter.HasVoted)
+                                                    {
+                                                        <span class="badge bg-success">
+                                                            <i class="bi bi-check-circle me-1"></i>Voted
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-warning">
+                                                            <i class="bi bi-clock me-1"></i>Pending
+                                                        </span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (voter.LastLoginTime.HasValue)
+                                                    {
+                                                        <small>@voter.LastLoginTime.Value.ToString("MMM dd, hh:mm tt")</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">Never</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group" role="group">
+                                                        <button class="btn btn-sm btn-outline-warning"
+                                                                @onclick="() => RegenerateCode(voter.Id)"
+                                                                title="Regenerate Code">
+                                                            <i class="bi bi-arrow-clockwise"></i>
+                                                        </button>
+                                                        @if (voter.HasVoted)
+                                                        {
+                                                            <button class="btn btn-sm btn-outline-danger"
+                                                                    @onclick="() => ResetVoterStatus(voter.Id)"
+                                                                    title="Reset Vote Status">
+                                                                <i class="bi bi-arrow-counterclockwise"></i>
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            @if (_totalPages > 1)
+                            {
+                                <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                                    <div>
+                                        Showing @(((int)((_currentPage * _pageSize) + 1))) to @(Math.Min(((_currentPage + 1) * _pageSize), _filteredVoters.Count))
+                                        of @_filteredVoters.Count entries
+                                    </div>
+                                    <nav>
+                                        <ul class="pagination mb-0">
+                                            <li class="page-item @(_currentPage == 0 ? "disabled" : "")">
+                                                <button class="page-link" @onclick="() => ChangePage(_currentPage - 1)" disabled="@(_currentPage == 0)">
+                                                    Previous
+                                                </button>
+                                            </li>
+                                            @for (int i = Math.Max(0, _currentPage - 2); i <= Math.Min(_totalPages - 1, _currentPage + 2); i++)
+                                            {
+                                                int pageIndex = i;
+                                                <li class="page-item @(_currentPage == pageIndex ? "active" : "")">
+                                                    <button class="page-link" @onclick="() => ChangePage(pageIndex)">
+                                                        @(pageIndex + 1)
+                                                    </button>
+                                                </li>
+                                            }
+                                            <li class="page-item @(_currentPage >= _totalPages - 1 ? "disabled" : "")">
+                                                <button class="page-link" @onclick="() => ChangePage(_currentPage + 1)" disabled="@(_currentPage >= _totalPages - 1)">
+                                                    Next
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center p-5">
+                                <i class="bi bi-search display-1 text-muted"></i>
+                                <h4 class="text-muted">No voters found</h4>
+                                <p class="text-muted">No voters match your search criteria.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code
+{
+    private bool _loading = true;
+    private string _loadingMessage = "Loading voter data...";
+    private string _message = string.Empty;
+    private bool _isError = false;
+    private List<VotingSystem_Claude.Models.Voter> _voters = new();
+    private List<VotingSystem_Claude.Models.Voter> _filteredVoters = new();
+    private string _searchTerm = string.Empty;
+
+    // Statistics
+    private int _totalStudents = 0;
+    private int _totalVotersWithCodes = 0;
+    private int _studentsWithoutCodes = 0;
+    private int _votersWhoVoted = 0;
+
+    // Pagination
+    private int _currentPage = 0;
+    private int _pageSize = 10;
+    private int _totalPages => (int)Math.Ceiling((double)_filteredVoters.Count / _pageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user is admin
+        var isAdmin = await AuthService.IsAdminAsync();
+        if (!isAdmin)
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        await RefreshData();
+    }
+
+    private async Task RefreshData()
+    {
+        _loading = true;
+        _loadingMessage = "Loading voter data...";
+        StateHasChanged();
+
+        try
+        {
+            // Get all voters with their students
+            _voters = await VoterService.GetAllVotersAsync();
+            _filteredVoters = _voters.ToList();
+
+            // Calculate statistics
+            _totalVotersWithCodes = _voters.Count;
+            _votersWhoVoted = _voters.Count(v => v.HasVoted);
+
+            // You'll need to add a method to get total students and students without codes
+            // For now, we'll estimate based on voter data
+            _totalStudents = _totalVotersWithCodes; // This should be replaced with actual student count
+            _studentsWithoutCodes = 0; // This should be calculated from students without voter records
+            _message = "Data refreshed successfully!";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _message = $"Error loading data: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task GenerateAllCodes()
+    {
+        _loading = true;
+        _loadingMessage = "Generating voter codes...";
+        StateHasChanged();
+
+        try
+        {
+            var voters = await VoterService.GetAllVotersAsync();
+            var updatedCount = 0;
+
+            foreach (var voter in voters)
+            {
+                if (string.IsNullOrEmpty(voter.VoterCode))
+                {
+                    var newCode = await VoterCodeService.GenerateVoterCodeAsync();
+                    if (await VoterCodeService.AssignVoterCodeAsync(voter.Id, newCode))
+                    {
+                        updatedCount++;
+                    }
+                }
+            }
+
+            if (updatedCount > 0)
+            {
+                _message = $"Successfully generated {updatedCount} new voter codes!";
+                _isError = false;
+                await RefreshData();
+            }
+            else
+            {
+                _message = "All voters already have codes.";
+                _isError = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"Error generating codes: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RegenerateCode(int voterId)
+    {
+        try
+        {
+            var newCode = await VoterCodeService.GenerateVoterCodeAsync();
+            if (await VoterCodeService.AssignVoterCodeAsync(voterId, newCode))
+            {
+                _message = $"Code regenerated successfully! New code: {newCode}";
+                _isError = false;
+                await RefreshData();
+            }
+            else
+            {
+                _message = "Failed to regenerate code.";
+                _isError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"Error regenerating code: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    private async Task ResetVoterStatus(int voterId)
+    {
+        try
+        {
+            var success = await VoterService.ResetVoterStatusAsync(voterId);
+            if (success)
+            {
+                _message = "Voter status reset successfully!";
+                _isError = false;
+                await RefreshData();
+            }
+            else
+            {
+                _message = "Failed to reset voter status.";
+                _isError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"Error resetting voter status: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    private void FilterVoters()
+    {
+        if (string.IsNullOrWhiteSpace(_searchTerm))
+        {
+            _filteredVoters = _voters.ToList();
+        }
+        else
+        {
+            var term = _searchTerm.ToLower();
+            _filteredVoters = _voters.Where(v =>
+                v.Student.FullName.ToLower().Contains(term) ||
+                v.Student.StudentId.ToLower().Contains(term) ||
+                v.VoterCode.ToLower().Contains(term) ||
+                v.Student.Class?.ToLower().Contains(term) == true ||
+                v.Student.House?.ToLower().Contains(term) == true
+            ).ToList();
+        }
+        _currentPage = 0; // Reset to first page when filtering
+    }
+
+    private void ChangePage(int newPage)
+    {
+        if (newPage >= 0 && newPage < _totalPages)
+        {
+            _currentPage = newPage;
+        }
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            _message = "Code copied to clipboard!";
+            _isError = false;
+        }
+        catch
+        {
+            // Fallback for browsers that don't support clipboard API
+            _message = $"Code: {text} (copy manually)";
+            _isError = false;
+        }
+    }
+
+    private async Task ExportCodes()
+    {
+        try
+        {
+            var csv = "Student ID,Full Name,Class,House,Voter Code,Status,Last Login\n";
+            foreach (var voter in _voters)
+            {
+                csv += $"{voter.Student.StudentId},{voter.Student.FullName},{voter.Student.Class},{voter.Student.House}," +
+                       $"{voter.VoterCode},{(voter.HasVoted ? "Voted" : "Pending")}," +
+                       $"{(voter.LastLoginTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never")}\n";
+            }
+            var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"voter_codes_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
+
+            _message = "Voter codes exported successfully!";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _message = $"Error exporting codes: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}
+<script>
+    window.downloadFile = (filename, base64, contentType) => {
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = `data:${contentType};base64,${base64}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+</script>

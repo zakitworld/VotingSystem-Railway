@@ -1,0 +1,450 @@
+﻿@page "/elections"
+@page "/elections/{ElectionId:int}"
+@using VotingSystem_Claude.Models
+@using VotingSystem_Claude.Services
+@using VotingSystem_Claude.Services.Interfaces
+@inject IAuthService AuthService
+@inject IElectionService ElectionService
+@inject IPositionService PositionService
+@inject ICandidateService CandidateService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="container mt-4">
+    @if (_loading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!_isAdmin)
+    {
+        <div class="alert alert-danger">
+            <h4>Access Denied</h4>
+            <p>You must be an administrator to access this page.</p>
+            <button class="btn btn-primary" @onclick="GoHome">Go Home</button>
+        </div>
+    }
+    else
+    {
+        <!-- Page Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Election Management</h2>
+            <div>
+                <button class="btn btn-primary me-2" @onclick="ShowCreateElection">
+                    <i class="bi bi-plus-circle me-2"></i>Create Election
+                </button>
+                <button class="btn btn-outline-secondary" @onclick="GoHome">
+                    <i class="bi bi-house me-2"></i>Back to Home
+                </button>
+            </div>
+        </div>
+
+        <!-- Message Notification -->
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show">
+                @_message
+                <button type="button" class="btn-close" @onclick="ClearMessage"></button>
+            </div>
+        }
+
+        <!-- Elections Table -->
+        <div class="card">
+            <div class="card-header">
+                <h4>All Elections</h4>
+            </div>
+            <div class="card-body">
+                @if (_elections != null && _elections.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>School Year</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var election in _elections)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@election.Title</strong>
+                                            @if (!string.IsNullOrEmpty(election.Description))
+                                            {
+                                                <br />
+                                                <small class="text-muted">@election.Description</small>
+                                            }
+                                        </td>
+                                        <td>@election.SchoolYear</td>
+                                        <td>@election.StartDate.ToString("MMM dd, yyyy")</td>
+                                        <td>@election.EndDate.ToString("MMM dd, yyyy")</td>
+                                        <td>
+                                            @if (election.IsActive)
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                            else if (election.EndDate < DateTime.UtcNow)
+                                            {
+                                                <span class="badge bg-secondary">Ended</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning">Inactive</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => ManagePositions(election.Id)">Positions</button>
+                                                <button class="btn btn-sm btn-outline-info" @onclick="() => ViewResults(election.Id)">Results</button>
+                                                @if (!election.IsActive && election.EndDate >= DateTime.UtcNow)
+                                                {
+                                                    <button class="btn btn-sm btn-success" @onclick="() => ActivateElection(election.Id)">Activate</button>
+                                                }
+                                                <button class="btn btn-sm btn-warning" @onclick="() => EditElection(election)">Edit</button>
+                                                <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDeleteElection(election)">Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <i class="bi bi-calendar-x display-1 text-muted"></i>
+                        <h5 class="mt-3">No Elections Found</h5>
+                        <p class="text-muted">Create your first election to get started.</p>
+                        <button class="btn btn-primary" @onclick="ShowCreateElection">
+                            <i class="bi bi-plus-circle me-2"></i>Create Election
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Election Modal -->
+        @if (_showElectionModal)
+        {
+            <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">@(_editingElection?.Id > 0 ? "Edit Election" : "Create New Election")</h5>
+                            <button type="button" class="btn-close" @onclick="CloseElectionModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form @onsubmit="SaveElection">
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <label class="form-label">Title *</label>
+                                        <input type="text" class="form-control" @bind="_editingElection.Title" required maxlength="100" />
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Start Date *</label>
+                                        <input type="datetime-local" class="form-control" @bind="_editingElection.StartDate" required />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">End Date *</label>
+                                        <input type="datetime-local" class="form-control" @bind="_editingElection.EndDate" required />
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">School Year</label>
+                                        <input type="text" class="form-control" @bind="_editingElection.SchoolYear" placeholder="e.g., 2024-2025" />
+                                    </div>
+                                    <div class="col-md-6 d-flex align-items-end">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="isActive" @bind="_editingElection.IsActive" />
+                                            <label class="form-check-label" for="isActive">Active Election</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Description</label>
+                                    <textarea class="form-control" rows="3" @bind="_editingElection.Description" placeholder="Brief description of the election"></textarea>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseElectionModal">Cancel</button>
+                            <button type="button" class="btn btn-primary" @onclick="SaveElection">
+                                @(_editingElection?.Id > 0 ? "Update" : "Create") Election
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Delete Confirmation Modal -->
+        @if (_showDeleteModal)
+        {
+            <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Confirm Delete</h5>
+                            <button type="button" class="btn-close" @onclick="CloseDeleteModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete the election "<strong>@_electionToDelete?.Title</strong>"?</p>
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                This action cannot be undone and will also delete all associated positions, candidates, and votes.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
+                            <button type="button" class="btn btn-danger" @onclick="DeleteElection">Delete Election</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _isAdmin;
+    private List<Election> _elections = new();
+    private string _message = string.Empty;
+    private bool _isError;
+
+    private bool _showElectionModal;
+    private bool _showDeleteModal;
+    private Election _editingElection = new();
+    private Election _electionToDelete;
+
+    [Parameter]
+    public int? ElectionId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAdmin = await AuthService.IsAdminAsync();
+        if (_isAdmin)
+        {
+            if (ElectionId.HasValue)
+            {
+                await LoadSpecificElection(ElectionId.Value);
+                _showElectionModal = true; // Automatically show modal for editing
+            }
+            else
+            {
+                await LoadElections();
+            }
+        }
+        _loading = false;
+    }
+
+    private async Task LoadElections()
+    {
+        try
+        {
+            _elections = await ElectionService.GetAllElectionsAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error loading elections: {ex.Message}", true);
+        }
+    }
+
+    private async Task LoadSpecificElection(int electionId)
+    {
+        try
+        {
+            _editingElection = await ElectionService.GetElectionByIdAsync(electionId);
+            if (_editingElection == null)
+            {
+                ShowMessage($"Election with ID {electionId} not found.", true);
+                NavigationManager.NavigateTo("/elections"); // Redirect if not found
+            }
+            else
+            {
+                // Ensure dates are in local time for datetime-local input
+                _editingElection.StartDate = _editingElection.StartDate.ToLocalTime();
+                _editingElection.EndDate = _editingElection.EndDate.ToLocalTime();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error loading election details: {ex.Message}", true);
+            NavigationManager.NavigateTo("/elections"); // Redirect on error
+        }
+    }
+
+    private void ShowCreateElection()
+    {
+        _editingElection = new Election
+        {
+            StartDate = DateTime.Now.Date.AddHours(8),
+            EndDate = DateTime.Now.Date.AddDays(7).AddHours(17),
+            SchoolYear = $"{DateTime.Now.Year}-{DateTime.Now.Year + 1}"
+        };
+        _showElectionModal = true;
+        ClearMessage();
+    }
+
+    private void EditElection(Election election)
+    {
+        _editingElection = new Election
+        {
+            Id = election.Id,
+            Title = election.Title,
+            Description = election.Description,
+            StartDate = election.StartDate,
+            EndDate = election.EndDate,
+            SchoolYear = election.SchoolYear,
+            IsActive = election.IsActive
+        };
+        _showElectionModal = true;
+        ClearMessage();
+    }
+
+    private async Task SaveElection()
+    {
+        try
+        {
+            // Validate dates
+            if (_editingElection.StartDate >= _editingElection.EndDate)
+            {
+                ShowMessage("End date must be after start date.", true);
+                return;
+            }
+
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(_editingElection.Title))
+            {
+                ShowMessage("Title is required.", true);
+                return;
+            }
+
+            bool isUpdate = _editingElection.Id > 0;
+            
+            if (isUpdate)
+            {
+                await ElectionService.UpdateElectionAsync(_editingElection);
+                ShowMessage("Election updated successfully!", false);
+            }
+            else
+            {
+                await ElectionService.CreateElectionAsync(_editingElection);
+                ShowMessage("Election created successfully!", false);
+            }
+
+            _showElectionModal = false;
+            await LoadElections();
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error saving election: {ex.Message}", true);
+        }
+    }
+
+    private async Task DeleteElection()
+    {
+        try
+        {
+            if (_electionToDelete != null)
+            {
+                await ElectionService.DeleteElectionAsync(_electionToDelete.Id);
+                ShowMessage($"Election '{_electionToDelete.Title}' deleted successfully!", false);
+                _showDeleteModal = false;
+                _electionToDelete = null;
+                await LoadElections();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error deleting election: {ex.Message}", true);
+        }
+    }
+
+    private void ConfirmDeleteElection(Election election)
+    {
+        _electionToDelete = election;
+        _showDeleteModal = true;
+        ClearMessage();
+    }
+
+    private void CloseElectionModal()
+    {
+        _showElectionModal = false;
+        _editingElection = new Election();
+        ClearMessage();
+    }
+
+    private void CloseDeleteModal()
+    {
+        _showDeleteModal = false;
+        _electionToDelete = null;
+    }
+
+    private void ManagePositions(int electionId)
+    {
+        NavigationManager.NavigateTo($"/positions/{electionId}");
+    }
+
+    private void ViewResults(int electionId)
+    {
+        NavigationManager.NavigateTo($"/results/{electionId}");
+    }
+
+    private async Task ActivateElection(int electionId)
+    {
+        try
+        {
+            // First, deactivate all other elections to ensure only one is active
+            var allElections = await ElectionService.GetAllElectionsAsync();
+            foreach (var election in allElections.Where(e => e.IsActive && e.Id != electionId))
+            {
+                election.IsActive = false;
+                await ElectionService.UpdateElectionAsync(election);
+            }
+
+            // Then activate the selected election
+            var electionToActivate = allElections.FirstOrDefault(e => e.Id == electionId);
+            if (electionToActivate != null)
+            {
+                electionToActivate.IsActive = true;
+                await ElectionService.UpdateElectionAsync(electionToActivate);
+                ShowMessage($"Election '{electionToActivate.Title}' activated successfully!", false);
+                await LoadElections();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error activating election: {ex.Message}", true);
+        }
+    }
+
+    private void GoHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+    private void ShowMessage(string message, bool isError)
+    {
+        _message = message;
+        _isError = isError;
+    }
+
+    private void ClearMessage()
+    {
+        _message = string.Empty;
+        _isError = false;
+    }
+}

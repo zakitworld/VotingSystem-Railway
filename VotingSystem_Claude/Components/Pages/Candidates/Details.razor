@@ -1,0 +1,148 @@
+﻿@page "/candidates/details/{CandidateId:int}"
+@using VotingSystem_Claude.Models
+@using VotingSystem_Claude.Services
+@inject CandidateService CandidateService
+@inject NavigationManager NavigationManager
+
+<div class="container mt-4">
+    @if (_loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_candidate != null)
+    {
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h3 class="mb-0">Candidate Details</h3>
+                            <button class="btn btn-outline-light btn-sm" @onclick="GoBack">
+                                <i class="bi bi-arrow-left me-1"></i>
+                                Back
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 text-center mb-4">
+                                @if (!string.IsNullOrEmpty(_candidate.ImagePath))
+                                {
+                                    <img src="@_candidate.ImagePath" class="img-fluid rounded-circle mb-3"
+                                         style="width: 200px; height: 200px; object-fit: cover;"
+                                         alt="@_candidate.FullName" />
+                                }
+                                else
+                                {
+                                    <div class="bg-secondary rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"
+                                         style="width: 200px; height: 200px;">
+                                        <i class="bi bi-person-fill text-white" style="font-size: 4rem;"></i>
+                                    </div>
+                                }
+
+                                <div class="badge bg-primary fs-6 mb-2">@_voteCount votes</div>
+                            </div>
+
+                            <div class="col-md-8">
+                                <h2 class="text-primary mb-3">@_candidate.FullName</h2>
+
+                                <div class="row mb-3">
+                                    <div class="col-sm-4"><strong>Position:</strong></div>
+                                    <div class="col-sm-8">@_candidate.Position?.Title</div>
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(_candidate.Class))
+                                {
+                                    <div class="row mb-3">
+                                        <div class="col-sm-4"><strong>Class:</strong></div>
+                                        <div class="col-sm-8">@_candidate.Class</div>
+                                    </div>
+                                }
+
+                                @if (_candidate.Student != null)
+                                {
+                                    <div class="row mb-3">
+                                        <div class="col-sm-4"><strong>Student ID:</strong></div>
+                                        <div class="col-sm-8">@_candidate.Student.StudentId</div>
+                                    </div>
+                                }
+
+                                <div class="row mb-3">
+                                    <div class="col-sm-4"><strong>Added:</strong></div>
+                                    <div class="col-sm-8">@_candidate.CreatedAt.ToString("MMMM dd, yyyy 'at' hh:mm tt")</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(_candidate.ManifestoSummary))
+                        {
+                            <hr />
+                            <div class="mt-4">
+                                <h5 class="text-primary mb-3">
+                                    <i class="bi bi-file-text me-2"></i>
+                                    Manifesto
+                                </h5>
+                                <div class="bg-light p-3 rounded">
+                                    <p class="mb-0" style="white-space: pre-line;">
+                                        @_candidate.ManifestoSummary
+                                    </p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-exclamation-triangle display-1 text-warning"></i>
+            <h4 class="mt-3">Candidate Not Found</h4>
+            <p class="text-muted">The candidate you're looking for doesn't exist or has been removed.</p>
+            <button class="btn btn-primary" @onclick="GoBack">
+                <i class="bi bi-arrow-left me-1"></i>
+                Go Back
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int CandidateId { get; set; }
+
+    private Candidate _candidate;
+    private int _voteCount;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCandidate();
+    }
+
+    private async Task LoadCandidate()
+    {
+        try
+        {
+            _candidate = await CandidateService.GetCandidateByIdAsync(CandidateId);
+            if (_candidate != null)
+            {
+                _voteCount = await CandidateService.GetCandidateVoteCountAsync(CandidateId);
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/candidates");
+    }
+}

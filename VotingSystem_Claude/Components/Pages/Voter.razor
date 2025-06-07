@@ -1,0 +1,548 @@
+﻿@page "/voters"
+@using VotingSystem_Claude.Models
+@using VotingSystem_Claude.Services.Interfaces
+@using System.ComponentModel.DataAnnotations
+@using System.ComponentModel.DataAnnotations.Schema
+@inject VotingSystem_Claude.Services.Interfaces.IVoterService VoterService
+@inject IVoterCodeService VoterCodeService
+@inject IAuthService AuthService
+@inject IStudentService StudentService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-people-fill me-2"></i>Voter Management</h2>
+        <div>
+            <button class="btn btn-success me-2" @onclick="ShowCreateModal">
+                <i class="bi bi-person-plus me-1"></i>Add New Voter
+            </button>
+            <button class="btn btn-primary me-2" @onclick="RefreshVoters">
+                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="NavigateBack">
+                <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+            </button>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading voters...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show">
+                @_message
+                <button type="button" class="btn-close" @onclick="ClearMessage"></button>
+            </div>
+        }
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" placeholder="Search voters..." @bind="_searchTerm" @oninput="OnSearchChanged" />
+                </div>
+            </div>
+            <div class="col-md-6">
+                <select class="form-select" @bind="_filterStatus">
+                    <option value="">All Voters</option>
+                    <option value="@VoterStatusFilter.Voted.ToString().ToLower()">Voted</option>
+                    <option value="@VoterStatusFilter.NotVoted.ToString().ToLower()">Not Voted</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    Voters List
+                    <span class="badge bg-primary ms-2">@_filteredVoters.Count() total</span>
+                    <span class="badge bg-success ms-1">@_filteredVoters.Count(v => v.HasVoted) voted</span>
+                    <span class="badge bg-warning ms-1">@_filteredVoters.Count(v => !v.HasVoted) pending</span>
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                @if (_filteredVoters.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Voter Code</th>
+                                    <th>Student Name</th>
+                                    <th>Student ID</th>
+                                    <th>Class</th>
+                                    <th>House</th>
+                                    <th>Status</th>
+                                    <th>Last Login</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var voter in _filteredVoters.Skip((_currentPage - 1) * _pageSize).Take(_pageSize))
+                                {
+                                    <tr>
+                                        <td><code class="text-primary">@voter.VoterCode</code></td>
+                                        <td><strong>@voter.Student?.FullName</strong></td>
+                                        <td>@voter.Student?.StudentId</td>
+                                        <td>@voter.Student?.Class</td>
+                                        <td>@voter.Student?.House</td>
+                                        <td>
+                                            @if (voter.HasVoted)
+                                            {
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle me-1"></i>Voted
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning">
+                                                    <i class="bi bi-clock me-1"></i>Pending
+                                                </span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (voter.LastLoginTime.HasValue)
+                                            {
+                                                <small>@voter.LastLoginTime.Value.ToString("MMM dd, yyyy HH:mm")</small>
+                                            }
+                                            else
+                                            {
+                                                <small class="text-muted">Never</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary" @onclick="() => EditVoter(voter)" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-outline-info" @onclick="() => RegenerateCode(voter)" title="Regenerate Code">
+                                                    <i class="bi bi-arrow-clockwise"></i>
+                                                </button>
+                                                @if (voter.HasVoted)
+                                                {
+                                                    <button class="btn btn-outline-warning" @onclick="() => ResetVotingStatus(voter)" title="Reset Voting Status">
+                                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                                    </button>
+                                                }
+                                                <button class="btn btn-outline-danger" @onclick="() => DeleteVoter(voter)" title="Delete">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (_totalPages > 1)
+                    {
+                        <div class="d-flex justify-content-between align-items-center p-3">
+                            <div>
+                                Showing @((_currentPage - 1) * _pageSize + 1) to
+                                @(Math.Min(_currentPage * _pageSize, _filteredVoters.Count())) of @_filteredVoters.Count() entries
+                            </div>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item @(_currentPage == 1 ? "disabled" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(_currentPage - 1)" disabled="@(_currentPage == 1)">Previous</button>
+                                    </li>
+                                    @for (int i = 1; i <= _totalPages; i++)
+                                    {
+                                        <li class="page-item @(_currentPage == i ? "active" : "")">
+                                            <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                        </li>
+                                    }
+                                    <li class="page-item @(_currentPage == _totalPages ? "disabled" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(_currentPage + 1)" disabled="@(_currentPage == _totalPages)">Next</button>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="p-3 text-center text-muted">No voters found.</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@* Modal for Add/Edit Voter *@
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@( _editingVoter.Id > 0 ? "Edit Voter" : "Add New Voter" )</h5>
+                    <button type="button" class="btn-close" @onclick="HideModal"></button>
+                </div>
+                <EditForm Model="_editingVoter" OnValidSubmit="SaveVoter">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        @if (_editingVoter.Id == 0) // Only allow selecting student when creating a new voter
+                        {
+                            <div class="mb-3">
+                                <label for="studentSelect" class="form-label">Associated Student</label>
+                                <InputSelect id="studentSelect" class="form-select" @bind-Value="_editingVoter.StudentId">
+                                    <option value="">-- Select a Student --</option>
+                                    @foreach (var student in _availableStudents)
+                                    {
+                                        <option value="@student.Id">@student.FullName (@student.StudentId - @student.Class)</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => _editingVoter.StudentId)" />
+                                @if (_availableStudents.Count == 0)
+                                {
+                                    <small class="text-danger">No students available. Please add students first.</small>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label for="voterCodeDisplay" class="form-label">Voter Code</label>
+                                <input type="text" id="voterCodeDisplay" class="form-control" value="@_editingVoter.VoterCode" readonly />
+                            </div>
+                            <div class="mb-3">
+                                <label for="studentNameDisplay" class="form-label">Student Name</label>
+                                <input type="text" id="studentNameDisplay" class="form-control" value="@_editingVoter.Student?.FullName" readonly />
+                            </div>
+                        }
+
+                        <div class="form-check mb-3">
+                            <InputCheckbox id="hasVoted" class="form-check-input" @bind-Value="_editingVoter.HasVoted" />
+                            <label class="form-check-label" for="hasVoted">Has Voted</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="HideModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@(_editingVoter.Id == 0 && _editingVoter.StudentId == 0)">Save Voter</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private List<VotingSystem_Claude.Models.Voter> _voters = new();
+    private List<Student> _availableStudents = new();
+    private bool _loading = true;
+    private string _message = string.Empty;
+    private bool _isError = false;
+    private string _searchTerm = string.Empty;
+    private string _filterStatus = string.Empty;
+    private bool _showModal = false;
+    private VotingSystem_Claude.Models.Voter _editingVoter = new();
+    private int _currentPage = 1;
+    private int _pageSize = 10;
+    private int _totalPages => (int)Math.Ceiling((double)_filteredVoters.Count() / _pageSize);
+
+    // Enum for cleaner filter status handling
+    private enum VoterStatusFilter
+    {
+        All,
+        Voted,
+        NotVoted
+    }
+
+    private IEnumerable<VotingSystem_Claude.Models.Voter> _filteredVoters
+    {
+        get
+        {
+            var filtered = _voters.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(_searchTerm))
+            {
+                filtered = filtered.Where(v =>
+                    v.VoterCode.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (v.Student?.FullName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (v.Student?.StudentId?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (v.Student?.Class?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+
+            if (!string.IsNullOrWhiteSpace(_filterStatus))
+            {
+                filtered = Enum.TryParse<VoterStatusFilter>(_filterStatus, true, out var statusFilter) switch
+                {
+                    true when statusFilter == VoterStatusFilter.Voted => filtered.Where(v => v.HasVoted),
+                    true when statusFilter == VoterStatusFilter.NotVoted => filtered.Where(v => !v.HasVoted),
+                    _ => filtered
+                };
+            }
+
+            return filtered;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user is admin
+        if (!await AuthService.IsAdminAsync())
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        await LoadVoters();
+        await LoadAvailableStudents();
+        _loading = false;
+    }
+
+    private async Task LoadVoters()
+    {
+        try
+        {
+            _voters = await VoterService.GetAllVotersAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error loading voters: {ex.Message}", true);
+        }
+    }
+
+    private async Task LoadAvailableStudents()
+    {
+        try
+        {
+            // Get all students
+            var allStudents = await StudentService.GetAllStudentsAsync();
+
+            // Get IDs of students who already have a voter record
+            var studentsWithVoterRecords = _voters.Select(v => v.StudentId).ToList();
+
+            // Filter out students who already have a voter record
+            _availableStudents = allStudents
+                .Where(s => !studentsWithVoterRecords.Contains(s.Id))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error loading available students: {ex.Message}", true);
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        _editingVoter = new VotingSystem_Claude.Models.Voter
+        {
+            CreatedAt = DateTime.UtcNow,
+            HasVoted = false,
+            StudentId = 0 // Use 0 instead of Guid.Empty for integer ID
+        };
+        _showModal = true;
+    }
+
+    private void EditVoter(VotingSystem_Claude.Models.Voter voter)
+    {
+        // Create a deep copy to avoid modifying the list directly before saving
+        _editingVoter = new VotingSystem_Claude.Models.Voter
+        {
+            Id = voter.Id,
+            VoterCode = voter.VoterCode,
+            StudentId = voter.StudentId,
+            HasVoted = voter.HasVoted,
+            LastLoginTime = voter.LastLoginTime,
+            CreatedAt = voter.CreatedAt,
+            Student = voter.Student // Include the student data for display in edit mode
+        };
+        _showModal = true;
+    }
+
+    private void HideModal()
+    {
+        _showModal = false;
+        _editingVoter = new(); // Clear the editing voter
+        ClearMessage(); // Clear any messages from modal interactions
+    }
+
+    private async Task SaveVoter()
+    {
+        ClearMessage();
+        try
+        {
+            if (_editingVoter.Id > 0) // Check if Id is not 0 for existing voter
+            {
+                var success = await VoterService.UpdateVoterAsync(_editingVoter);
+                if (success)
+                {
+                    ShowMessage("Voter updated successfully!", false);
+                    await LoadVoters();
+                    HideModal();
+                }
+                else
+                {
+                    ShowMessage("Failed to update voter.", true);
+                }
+            }
+            else
+            {
+                _editingVoter.CreatedAt = DateTime.UtcNow; // Ensure creation time is set for new voter
+                _editingVoter.VoterCode = await VoterCodeService.GenerateVoterCodeAsync(); // Generate code for new voter
+
+                var createdVoter = await VoterService.CreateVoterAsync(_editingVoter);
+                if (createdVoter != null)
+                {
+                    ShowMessage("Voter created successfully!", false);
+                    await LoadVoters();
+                    await LoadAvailableStudents(); // Refresh available students after creating a voter
+                    HideModal();
+                }
+                else
+                {
+                    ShowMessage("Failed to create voter. It might already exist or student is taken.", true);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error saving voter: {ex.Message}", true);
+        }
+    }
+
+    private async Task RegenerateCode(VotingSystem_Claude.Models.Voter voter)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to regenerate the voter code for {voter.Student?.FullName}?"))
+        {
+            ClearMessage();
+            try
+            {
+                // Call a service method to regenerate the code for the specific voter
+                // This assumes VoterService.RegenerateVoterCodeAsync exists and updates the voter in the DB
+                var success = await VoterService.RegenerateVoterCodeAsync(voter.Id);
+                if (success)
+                {
+                    // Find the voter in the local list and update its code
+                    var updatedVoter = await VoterService.GetVoterByIdAsync(voter.Id); // Fetch the updated voter
+                    if (updatedVoter != null)
+                    {
+                        var index = _voters.FindIndex(v => v.Id == voter.Id);
+                        if (index != -1)
+                        {
+                            _voters[index] = updatedVoter; // Update local list with the new code
+                        }
+                        ShowMessage($"New voter code generated: {updatedVoter.VoterCode}", false);
+                    }
+                    else
+                    {
+                        ShowMessage("Failed to retrieve updated voter information.", true);
+                    }
+                }
+                else
+                {
+                    ShowMessage("Failed to regenerate voter code.", true);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowMessage($"Error regenerating voter code: {ex.Message}", true);
+            }
+        }
+    }
+
+    private async Task ResetVotingStatus(VotingSystem_Claude.Models.Voter voter)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to reset the voting status for {voter.Student?.FullName}? This will allow them to vote again."))
+        {
+            ClearMessage();
+            try
+            {
+                var success = await VoterService.ResetVoterStatusAsync(voter.Id);
+                if (success)
+                {
+                    ShowMessage("Voting status reset successfully!", false);
+                    await LoadVoters();
+                }
+                else
+                {
+                    ShowMessage("Failed to reset voting status.", true);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowMessage($"Error resetting voting status: {ex.Message}", true);
+            }
+        }
+    }
+
+    private async Task DeleteVoter(VotingSystem_Claude.Models.Voter voter)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the voter record for {voter.Student?.FullName}? This action cannot be undone."))
+        {
+            ClearMessage();
+            try
+            {
+                var success = await VoterService.DeleteVoterAsync(voter.Id);
+                if (success)
+                {
+                    ShowMessage("Voter deleted successfully!", false);
+                    await LoadVoters();
+                    await LoadAvailableStudents(); // Refresh available students after deleting a voter
+                }
+                else
+                {
+                    ShowMessage("Failed to delete voter.", true);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowMessage($"Error deleting voter: {ex.Message}", true);
+            }
+        }
+    }
+
+    private async Task RefreshVoters()
+    {
+        _loading = true;
+        await LoadVoters();
+        await LoadAvailableStudents();
+        _loading = false;
+        ShowMessage("Voters refreshed successfully!", false);
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        _searchTerm = e.Value?.ToString() ?? string.Empty;
+        _currentPage = 1; // Reset to first page when searching
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= _totalPages)
+        {
+            _currentPage = page;
+        }
+    }
+
+    private void ShowMessage(string message, bool isError)
+    {
+        _message = message;
+        _isError = isError;
+        StateHasChanged(); // Ensure UI updates after message is set
+    }
+
+    private void ClearMessage()
+    {
+        _message = string.Empty;
+        _isError = false;
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}

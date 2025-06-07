@@ -1,0 +1,259 @@
+﻿@page "/"
+@using VotingSystem_Claude.Models
+@using VotingSystem_Claude.Services
+@using VotingSystem_Claude.Services.Interfaces
+@using VotingSystem_Claude.Data
+@inject IAuthService AuthService
+@inject IElectionService ElectionService
+@inject IVotingService VotingService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <img src="images/school-logo.png" alt="School Logo" class="mb-4" style="max-width: 200px;" />
+            <h1 class="display-4">Welcome to @SchoolName</h1>
+            <h2 class="h3 mb-4">Student Electoral Commission</h2>
+
+            @if (_loading)
+            {
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            }
+            else
+            {
+                if (_voter != null)
+                {
+                    NavigationManager.NavigateTo("/voter-dashboard", true);
+                    return;
+                }
+                else if (_isAdmin)
+                {
+                    NavigationManager.NavigateTo("/admin-dashboard", true);
+                    return;
+                }
+                else
+                {
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h3 class="mb-0">Login</h3>
+                        </div>
+                        <div class="card-body">
+                            @if (!string.IsNullOrEmpty(_errorMessage))
+                            {
+                                <div class="alert alert-danger">@_errorMessage</div>
+                            }
+
+                            <ul class="nav nav-tabs mb-3" id="loginTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link @( _activeTab == "voter" ? "active" : "" )"
+                                            @onclick='() => _activeTab = "voter"'
+                                            type="button" role="tab">Voter</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link @( _activeTab == "admin" ? "active" : "" )"
+                                            @onclick='() => _activeTab = "admin"'
+                                            type="button" role="tab">Admin</button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="loginTabsContent">
+                                @if (_activeTab == "voter")
+                                {
+                                    <div class="tab-pane fade show active" id="voter-login" role="tabpanel">
+                                        <form @onsubmit="LoginVoter" @onsubmit:preventDefault="true">
+                                            <div class="form-group mb-3">
+                                                <label for="voterCode">Voter Code</label>
+                                                <input type="text" class="form-control" id="voterCode"
+                                                       @bind="_voterCode" placeholder="Enter your voter code"
+                                                       required />
+                                            </div>
+                                            <button type="submit" class="btn btn-primary btn-block">Login as Voter</button>
+                                        </form>
+                                    </div>
+                                }
+                                else if (_activeTab == "admin")
+                                {
+                                    <div class="tab-pane fade show active" id="admin-login" role="tabpanel">
+                                        <form @onsubmit="LoginAdmin" @onsubmit:preventDefault="true">
+                                            <div class="form-group mb-3">
+                                                <label for="adminUsername">Username</label>
+                                                <input type="text" class="form-control" id="adminUsername"
+                                                       @bind="_adminUsername" placeholder="Enter admin username"
+                                                       required />
+                                            </div>
+                                            <div class="form-group mb-3">
+                                                <label for="adminPassword">Password</label>
+                                                <input type="password" class="form-control" id="adminPassword"
+                                                       @bind="_adminPassword" placeholder="Enter admin password"
+                                                       required />
+                                            </div>
+                                            <button type="submit" class="btn btn-primary btn-block">Login as Admin</button>
+                                        </form>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string SchoolName = "Our School"; // You can make this configurable
+    private bool _loading = true;
+    private Models.Voter _voter;
+    private Election _activeElection;
+    private bool _hasVoted;
+    private bool _isAdmin;
+
+    // Login fields
+    private string _voterCode;
+    private string _adminUsername;
+    private string _adminPassword;
+    private string _errorMessage;
+    private string _activeTab = "voter";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPageData();
+    }
+
+    private async Task LoadPageData()
+    {
+        try
+        {
+            _loading = true;
+            _errorMessage = string.Empty;
+
+            _voter = await AuthService.GetAuthenticatedVoterAsync();
+            _isAdmin = await AuthService.IsAdminAsync();
+
+            if (_voter != null)
+            {
+                _activeElection = await ElectionService.GetActiveElectionAsync();
+                if (_activeElection != null)
+                {
+                    _hasVoted = await VotingService.HasVotedInElectionAsync(_voter.Id, _activeElection.Id);
+                }
+            }
+            else if (!_isAdmin)
+            {
+                // If not authenticated as either voter or admin, ensure clean state
+                _voter = null;
+                _isAdmin = false;
+                _activeElection = null;
+                _hasVoted = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "An error occurred while loading the page. Please try again.";
+            Console.WriteLine($"Error in LoadPageData: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoginVoter()
+    {
+        try
+        {
+            _loading = true;
+            _errorMessage = string.Empty;
+            var voter = await AuthService.AuthenticateVoterAsync(_voterCode);
+            if (voter != null)
+            {
+                await LoadPageData(); // Reload data after successful login
+                _voterCode = string.Empty; // Clear the input field
+            }
+            else
+            {
+                _errorMessage = "Invalid voter code.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "An error occurred during login. Please try again.";
+            Console.WriteLine($"Error in LoginVoter: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoginAdmin()
+    {
+        try
+        {
+            _loading = true;
+            _errorMessage = string.Empty;
+            var success = await AuthService.AuthenticateAdminAsync(_adminUsername, _adminPassword);
+            if (success)
+            {
+                await LoadPageData(); // Reload data after successful login
+                _adminUsername = string.Empty; // Clear the input fields
+                _adminPassword = string.Empty;
+            }
+            else
+            {
+                _errorMessage = "Invalid admin credentials.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "An error occurred during login. Please try again.";
+            Console.WriteLine($"Error in LoginAdmin: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        await LoadPageData(); // Reload data after logout
+        NavigationManager.NavigateTo("/"); // Redirect to home or login page
+    }
+
+    private void StartVoting()
+    {
+        if (_activeElection != null)
+        {
+            NavigationManager.NavigateTo($"/election/{_activeElection.Id}/vote");
+        }
+    }
+
+    private void ViewResults()
+    {
+        if (_activeElection != null)
+        {
+            NavigationManager.NavigateTo($"/election/{_activeElection.Id}/results");
+        }
+    }
+
+    private void NavigateToElectionDashboard()
+    {
+        NavigationManager.NavigateTo("/admin/elections");
+    }
+
+    private void NavigateToVoterCodeManager()
+    {
+        NavigationManager.NavigateTo("/admin/voter-codes");
+    }
+
+    private void ViewAllResults()
+    {
+        NavigationManager.NavigateTo("/admin/all-results");
+    }
+}

@@ -1,0 +1,325 @@
+﻿@page "/results"
+@page "/results/{electionId:int}"
+
+@using VotingSystem_Claude.Models
+@using VotingSystem_Claude.Services
+@using VotingSystem_Claude.Services.Interfaces
+
+@inject IAuthService AuthService
+@inject IElectionService ElectionService
+@inject IResultsService ResultsService
+@inject NavigationManager NavigationManager
+
+<div class="container mt-4">
+    @if (_loading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_voter == null && !_isAdmin)
+    {
+        <div class="alert alert-danger">
+            <h4>Access Denied</h4>
+            <p>You must be logged in to view results.</p>
+            <button class="btn btn-primary" @onclick="GoHome">Go to Login</button>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Election Results</h2>
+            <button class="btn btn-outline-primary" @onclick="GoHome">
+                <i class="bi bi-house me-2"></i>Back to Home
+            </button>
+        </div>
+
+        @if (_isAdmin && ElectionId == null)
+        {
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="electionSelect">Select Election:</label>
+                        <select class="form-select" @onchange="OnElectionChanged">
+                            <option value="">-- Select an Election --</option>
+                            @if (_elections != null)
+                            {
+                                @foreach (var election in _elections)
+                                {
+                                    <option value="@election.Id" selected="@(_selectedElectionId == election.Id)">
+                                        @election.Title (@election.StartDate:MMM dd, yyyy)
+                                    </option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_selectedElection != null && _results != null)
+        {
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0">@_selectedElection.Title</h4>
+                            <small>@_selectedElection.Description</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h5>Total Votes Cast</h5>
+                                            <h2 class="text-primary">@_totalVoters</h2>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h5>Eligible Voters</h5>
+                                            <h2 class="text-info">@_totalEligibleVoters</h2>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h5>Turnout</h5>
+                                            <h2 class="text-success">@GetTurnoutPercentage()%</h2>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @foreach (var position in _selectedElection.Positions.OrderBy(p => p.DisplayOrder))
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4>@position.Title</h4>
+                        @if (!string.IsNullOrEmpty(position.Description))
+                        {
+                            <small class="text-muted">@position.Description</small>
+                        }
+                    </div>
+                    <div class="card-body">
+                        @if (_results.ContainsKey(position.Id) && _results[position.Id].Any())
+                        {
+                            var positionResults = _results[position.Id];
+                            var totalVotesForPosition = positionResults.Sum(c => c.VoteCount);
+
+                            @for (int i = 0; i < positionResults.Count; i++)
+                            {
+                                var candidate = positionResults[i];
+                                var percentage = totalVotesForPosition > 0 ? (candidate.VoteCount * 100.0 / totalVotesForPosition) : 0;
+                                var isWinner = i == 0 && candidate.VoteCount > 0;
+
+                                <div class="row mb-3 align-items-center @(isWinner ? "border border-success rounded p-2 bg-light" : "")">
+                                    <div class="col-md-1 text-center">
+                                        @if (isWinner)
+                                        {
+                                            <i class="bi bi-trophy-fill text-warning" style="font-size: 24px;"></i>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">#@(i + 1)</span>
+                                        }
+                                    </div>
+                                    <div class="col-md-2 text-center">
+                                        @if (!string.IsNullOrEmpty(candidate.ImagePath))
+                                        {
+                                            <img src="@candidate.ImagePath" alt="@candidate.FullName"
+                                                 class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;" />
+                                        }
+                                        else
+                                        {
+                                            <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center text-white"
+                                                 style="width: 60px; height: 60px;">
+                                                <i class="bi bi-person-fill"></i>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="col-md-3">
+                                        <h6 class="mb-1">@candidate.FullName</h6>
+                                        @if (!string.IsNullOrEmpty(candidate.Class))
+                                        {
+                                            <small class="text-muted">Class: @candidate.Class</small>
+                                        }
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="progress" style="height: 30px;">
+                                            <div class="progress-bar @(isWinner ? "bg-success" : "bg-primary")"
+                                                 role="progressbar"
+                                                 style="width: @percentage%"
+                                                 aria-valuenow="@percentage"
+                                                 aria-valuemin="0"
+                                                 aria-valuemax="100">
+                                                @percentage.ToString("F1")%
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2 text-center">
+                                        <h5 class="mb-0 @(isWinner ? "text-success" : "")">@candidate.VoteCount</h5>
+                                        <small class="text-muted">votes</small>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="alert alert-info">
+                                No votes cast for this position yet.
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (_isAdmin && _voterBreakdown != null && _voterBreakdown.Any())
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4>Voter Breakdown by Class</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            @foreach (var classData in _voterBreakdown)
+                            {
+                                <div class="col-md-3 mb-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h6>@classData.Key</h6>
+                                            <h4 class="text-primary">@classData.Value</h4>
+                                            <small class="text-muted">voters</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else if (!_loading)
+        {
+            <div class="alert alert-info">
+                <h4>No Results Available</h4>
+                <p>@(_isAdmin ? "Please select an election to view results." : "No election results are currently available.")</p>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int? ElectionId { get; set; }
+
+    private bool _loading = true;
+    private VotingSystem_Claude.Models.Voter _voter;
+    private bool _isAdmin;
+    private List<Election> _elections;
+    private Election _selectedElection;
+    private int? _selectedElectionId;
+    private Dictionary<int, List<CandidateResult>> _results;
+    private int _totalVoters;
+    private int _totalEligibleVoters;
+    private Dictionary<string, int> _voterBreakdown;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _voter = await AuthService.GetAuthenticatedVoterAsync();
+            _isAdmin = await AuthService.IsAdminAsync();
+
+            if (_voter != null || _isAdmin)
+            {
+                if (ElectionId.HasValue)
+                {
+                    _selectedElectionId = ElectionId.Value;
+                    await LoadElectionResults(ElectionId.Value);
+                }
+                else if (_isAdmin)
+                {
+                    _elections = await ElectionService.GetAllElectionsAsync();
+                }
+                else
+                {
+                    var activeElection = await ElectionService.GetActiveElectionAsync();
+                    if (activeElection != null)
+                    {
+                        _selectedElectionId = activeElection.Id;
+                        await LoadElectionResults(activeElection.Id);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Optional: log or handle exceptions
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnElectionChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int electionId))
+        {
+            _selectedElectionId = electionId;
+            _loading = true;
+            await LoadElectionResults(electionId);
+            _loading = false;
+        }
+        else
+        {
+            _selectedElection = null;
+            _results = null;
+            _selectedElectionId = null;
+        }
+    }
+
+    private async Task LoadElectionResults(int electionId)
+    {
+        try
+        {
+            _selectedElection = await ElectionService.GetElectionByIdAsync(electionId);
+
+            if (_selectedElection != null)
+            {
+                _results = await ResultsService.GetElectionResultsAsync(electionId);
+                _totalVoters = await ResultsService.GetTotalVotersAsync(electionId);
+                _totalEligibleVoters = await ResultsService.GetTotalEligibleVotersAsync();
+
+                if (_isAdmin)
+                {
+                    _voterBreakdown = await ResultsService.GetVoterClassBreakdownAsync(electionId);
+                }
+            }
+        }
+        catch
+        {
+            // Optional: log or handle exceptions
+        }
+    }
+
+    private string GetTurnoutPercentage()
+    {
+        if (_totalEligibleVoters == 0) return "0.0";
+        return (_totalVoters * 100.0 / _totalEligibleVoters).ToString("F1");
+    }
+
+    private void GoHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}

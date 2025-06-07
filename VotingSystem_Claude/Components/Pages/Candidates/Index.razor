@@ -1,0 +1,627 @@
+﻿@page "/candidates"
+@page "/candidates/{ElectionId:int}"
+@using Microsoft.AspNetCore.Authorization
+@using VotingSystem_Claude.Models
+@using VotingSystem_Claude.Services.Interfaces
+@using System.Timers
+@inject ICandidateService CandidateService
+@inject IElectionService ElectionService
+@inject IPositionService PositionService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IStudentService StudentService
+@attribute [Authorize]
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>
+                        <i class="bi bi-people-fill me-2"></i>
+                        Candidates Management
+                    </h2>
+                    @if (_selectedElection != null)
+                    {
+                        <p class="text-muted mb-0">
+                            Election: @_selectedElection.Title
+                        </p>
+                    }
+                </div>
+                <div>
+                    <button class="btn btn-primary me-2" @onclick="ShowCreateModal">
+                        <i class="bi bi-plus-circle me-1"></i>
+                        Add Candidate
+                    </button>
+                    <button class="btn btn-outline-secondary" @onclick="RefreshData">
+                        <i class="bi bi-arrow-clockwise me-1"></i>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Election</label>
+                            <select class="form-select" @onchange="OnElectionChanged">
+                                <option value="">All Elections</option>
+                                @if (_elections != null)
+                                {
+                                    @foreach (var election in _elections)
+                                    {
+                                        <option value="@election.Id" selected="@(election.Id == ElectionId)">
+                                            @election.Title
+                                        </option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Position</label>
+                            <select class="form-select" @bind-value="_selectedPositionId" @bind-value:event="oninput" @onchange="OnPositionChanged">
+                                <option value="">All Positions</option>
+                                @if (_positions != null)
+                                {
+                                    @foreach (var position in _positions)
+                                    {
+                                        <option value="@position.Id">@position.Title</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Search</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" placeholder="Search candidates..." @bind="_searchTerm" @oninput="OnSearchInput" />
+                                <button class="btn btn-outline-secondary" type="button" @onclick="ClearSearch">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Candidates Grid -->
+            @if (_loading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading candidates...</p>
+                </div>
+            }
+            else if (_filteredCandidates?.Any() == true)
+            {
+                <div class="row">
+                    @foreach (var candidate in _filteredCandidates)
+                    {
+                        <div class="col-lg-4 col-md-6 mb-4">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="card-title mb-0 text-primary">@candidate.Position?.Title</h6>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <button class="dropdown-item" @onclick="() => ShowEditModal(candidate)">
+                                                    <i class="bi bi-pencil me-2"></i> Edit
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button class="dropdown-item text-danger" @onclick="() => DeleteCandidate(candidate.Id)">
+                                                    <i class="bi bi-trash me-2"></i> Delete
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="text-center mb-3">
+                                        @if (!string.IsNullOrEmpty(candidate.ImagePath))
+                                        {
+                                            <img src="@candidate.ImagePath" class="rounded-circle mb-2" style="width: 80px; height: 80px; object-fit: cover;" alt="@candidate.FullName" />
+                                        }
+                                        else
+                                        {
+                                            <div class="bg-secondary rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                                <i class="bi bi-person-fill text-white fs-2"></i>
+                                            </div>
+                                        }
+                                    </div>
+                                    <h5 class="card-title text-center">@candidate.FullName</h5>
+                                    @if (!string.IsNullOrEmpty(candidate.Class))
+                                    {
+                                        <p class="text-muted text-center mb-2">
+                                            <i class="bi bi-mortarboard me-1"></i> @candidate.Class
+                                        </p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(candidate.ManifestoSummary))
+                                    {
+                                        <p class="card-text small">
+                                            @(candidate.ManifestoSummary.Length > 100 ? candidate.ManifestoSummary.Substring(0, 100) + "..." : candidate.ManifestoSummary)
+                                        </p>
+                                    }
+                                </div>
+                                <div class="card-footer text-muted small">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Added: @candidate.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                        <span class="badge bg-primary">@_voteCounts.GetValueOrDefault(candidate.Id, 0) votes</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="bi bi-people display-1 text-muted"></i>
+                    <h4 class="mt-3">No Candidates Found</h4>
+                    <p class="text-muted">
+                        @if (!string.IsNullOrEmpty(_searchTerm))
+                        {
+                            <span>No candidates match your search criteria.</span>
+                        }
+                        else
+                        {
+                            <span>No candidates have been added yet. Click "Add Candidate" to get started.</span>
+                        }
+                    </p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+<!-- Create/Edit Modal -->
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(_isEditing ? "Edit Candidate" : "Add New Candidate")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_modalErrorMessage))
+                    {
+                        <div class="alert alert-danger">
+                            @_modalErrorMessage
+                        </div>
+                    }
+
+                    <EditForm Model="_candidateModel" OnValidSubmit="SaveCandidate">
+                        <DataAnnotationsValidator />
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Full Name *</label>
+                                <InputText class="form-control" @bind-Value="_candidateModel.FullName" />
+                                <ValidationMessage For="@(() => _candidateModel.FullName)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Class</label>
+                                <InputText class="form-control" @bind-Value="_candidateModel.Class" />
+                                <ValidationMessage For="@(() => _candidateModel.Class)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Position *</label>
+                                <InputSelect class="form-select" @bind-Value="_candidateModel.PositionId">
+                                    <option value="">Select Position</option>
+                                    @if (_positions != null)
+                                    {
+                                        @foreach (var position in _positions)
+                                        {
+                                            <option value="@position.Id">@position.Title</option>
+                                        }
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => _candidateModel.PositionId)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Student (Optional)</label>
+                                <InputSelect class="form-select" @bind-Value="_candidateModel.StudentId">
+                                    <option value="">Select Student</option>
+                                    @if (_students != null)
+                                    {
+                                        @foreach (var student in _students)
+                                        {
+                                            <option value="@student.Id">@student.FullName (@student.Class)</option>
+                                        }
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Image</label>
+                                <InputFile OnChange="HandleFileSelection" class="form-control" />
+                                @if (!string.IsNullOrEmpty(_candidateModel.ImagePath) && _selectedFile == null)
+                                {
+                                    <small class="form-text text-muted">Current image: @_candidateModel.ImagePath</small>
+                                }
+                                @* Add image preview here later if needed *@
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Manifesto Summary</label>
+                                <InputTextArea class="form-control" rows="4" @bind-Value="_candidateModel.ManifestoSummary" placeholder="Brief summary of candidate's manifesto or platform..." />
+                                <ValidationMessage For="@(() => _candidateModel.ManifestoSummary)" />
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                                @if (_saving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                }
+                                @(_isEditing ? "Update Candidate" : "Add Candidate")
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int? ElectionId { get; set; }
+
+    private List<Candidate> _candidates = new();
+    private List<Candidate> _filteredCandidates = new();
+    private List<Election> _elections = new();
+    private List<Position> _positions = new();
+    private List<Student> _students = new();
+    private Dictionary<int, int> _voteCounts = new();
+
+    private Election _selectedElection;
+    private string _selectedPositionId = "";
+    private string _searchTerm = "";
+    private bool _loading = true;
+
+    // Modal state
+    private bool _showModal;
+    private bool _isEditing;
+    private bool _saving;
+    private string _modalErrorMessage = "";
+    private CandidateModel _candidateModel = new();
+
+    private IBrowserFile _selectedFile;
+
+    // Added members for displaying messages
+    private string _message = string.Empty;
+    private bool _isError;
+    private Timer _messageTimer; // Timer for auto-hiding messages
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ElectionId.HasValue)
+        {
+            _selectedElection = _elections?.FirstOrDefault(e => e.Id == ElectionId.Value);
+            await LoadPositionsForElection(ElectionId.Value);
+        }
+
+        await FilterCandidates();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+
+        try
+        {
+            _elections = await ElectionService.GetAllElectionsAsync();
+            _candidates = await CandidateService.SearchCandidatesAsync("", ElectionId);
+
+            if (ElectionId.HasValue)
+            {
+                _selectedElection = _elections?.FirstOrDefault(e => e.Id == ElectionId.Value);
+                await LoadPositionsForElection(ElectionId.Value);
+            }
+
+            await LoadVoteCounts();
+            await LoadStudents();
+            await FilterCandidates();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadPositionsForElection(int electionId)
+    {
+        _positions = await PositionService.GetPositionsByElectionIdAsync(electionId);
+    }
+
+    private async Task LoadAllPositions()
+    {
+        _positions = await PositionService.GetAllPositionsAsync();
+    }
+
+    private async Task LoadVoteCounts()
+    {
+        _voteCounts.Clear();
+
+        foreach (var candidate in _candidates)
+        {
+            _voteCounts[candidate.Id] = await CandidateService.GetCandidateVoteCountAsync(candidate.Id);
+        }
+    }
+
+    private async Task LoadStudents()
+    {
+        _students = await StudentService.GetAllStudentsAsync();
+    }
+
+    private async Task FilterCandidates()
+    {
+        _filteredCandidates = _candidates.Where(c =>
+        {
+            if (!string.IsNullOrEmpty(_selectedPositionId) &&
+                int.TryParse(_selectedPositionId, out int positionId) &&
+                c.PositionId != positionId)
+                return false;
+
+            if (!string.IsNullOrEmpty(_searchTerm) &&
+                !c.FullName.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) &&
+                !(c.Class?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+                return false;
+
+            return true;
+        }).ToList();
+    }
+
+    // from Copilot
+    private async Task OnElectionChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int electionId))
+        {
+            ElectionId = electionId;
+            _selectedElection = _elections?.FirstOrDefault(e => e.Id == electionId);
+            await LoadPositionsForElection(electionId);
+        }
+        else
+        {
+            ElectionId = null;
+            _selectedElection = null;
+            _positions.Clear();
+        }
+        await FilterCandidates();
+    }
+    private void ShowCreateModal()
+    {
+        _isEditing = false;
+        _candidateModel = new CandidateModel();
+        _showModal = true;
+        // Ensure positions are loaded for the modal
+        _ = LoadAllPositions(); // Fire and forget
+    }
+    private void ShowEditModal(Candidate candidate)
+    {
+        _isEditing = true;
+        _candidateModel = new CandidateModel
+        {
+            Id = candidate.Id,
+            FullName = candidate.FullName,
+            Class = candidate.Class,
+            PositionId = candidate.PositionId,
+            StudentId = candidate.StudentId,
+            ImagePath = candidate.ImagePath,
+            ManifestoSummary = candidate.ManifestoSummary
+        };
+        _showModal = true;
+    }
+    private void CloseModal()
+    {
+        _showModal = false;
+        _modalErrorMessage = "";
+        ClearMessage(); // Clear message when modal is closed
+    }
+    private async Task SaveCandidate(EditContext args)
+    {
+        if (!args.Validate())
+            return;
+
+        _saving = true;
+        _modalErrorMessage = "";
+
+        try
+        {
+            // Upload image if a new file is selected
+            if (_selectedFile != null)
+            {
+                _candidateModel.ImagePath = await CandidateService.UploadCandidateImageAsync(_selectedFile);
+            }
+
+            // Create or update the Candidate entity from CandidateModel
+            var candidateToSave = new Candidate
+            {
+                Id = _candidateModel.Id,
+                FullName = _candidateModel.FullName,
+                Class = _candidateModel.Class,
+                PositionId = _candidateModel.PositionId,
+                StudentId = _candidateModel.StudentId,
+                ImagePath = _candidateModel.ImagePath,
+                ManifestoSummary = _candidateModel.ManifestoSummary
+            };
+
+            bool isUpdate = candidateToSave.Id > 0;
+            
+            if (isUpdate)
+            {
+                await CandidateService.UpdateCandidateAsync(candidateToSave);
+                ShowMessage("Candidate updated successfully!", false);
+            }
+            else
+            {
+                await CandidateService.CreateCandidateAsync(candidateToSave);
+                ShowMessage("Candidate added successfully!", false);
+            }
+
+            _showModal = false;
+            _selectedFile = null; // Clear selected file after saving
+            await LoadData(); // Reload all data after saving
+        }
+        catch (Exception ex)
+        {
+            _modalErrorMessage = $"Error saving candidate: {ex.Message}";
+            // Log the exception for debugging
+            Console.WriteLine($"Error saving candidate: {ex}");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+    private async Task OnSearchInput(ChangeEventArgs args)
+    {
+        _searchTerm = args.Value?.ToString() ?? "";
+        await FilterCandidates();
+    }
+    private async Task ClearSearch(MouseEventArgs args)
+    {
+        _searchTerm = "";
+        await FilterCandidates();
+    }
+    private async Task RefreshData(MouseEventArgs args)
+    {
+        await LoadData();
+    }
+
+    private async Task DeleteCandidate(int candidateId)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this candidate?"))
+            return;
+
+        try
+        {
+            var success = await CandidateService.DeleteCandidateAsync(candidateId);
+            if (success)
+            {
+                await LoadData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to delete candidate.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "An error occurred while deleting the candidate.");
+        }
+    }
+
+    private async Task OnPositionChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int positionId))
+        {
+            _selectedPositionId = positionId.ToString();
+        }
+        else
+        {
+            _selectedPositionId = "";
+        }
+        await FilterCandidates();
+    }
+
+    private async Task HandleFileSelection(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        // In a real application, you would typically upload this file to a server
+        // and get a path back. For now, we\'ll just store the file temporarily.
+        // The actual saving logic needs to be implemented.
+
+        // Example of reading file for preview (requires more implementation)
+        // var stream = _selectedFile.OpenReadStream();
+        // var reader = new System.IO.StreamReader(stream);
+        // string content = await reader.ReadToEndAsync();
+        // You would convert this stream to a format suitable for displaying as an image source.
+
+        // Update the ImagePath if needed, perhaps with a temporary identifier or name
+        _candidateModel.ImagePath = _selectedFile.Name; // Placeholder
+    }
+
+    // Added methods for displaying and clearing messages
+    private void ShowMessage(string message, bool isError)
+    {
+        _message = message;
+        _isError = isError;
+
+        // Initialize and start the timer
+        _messageTimer?.Dispose(); // Dispose existing timer if any
+        _messageTimer = new Timer(30000); // 30 seconds
+        _messageTimer.Elapsed += HandleTimerElapsed;
+        _messageTimer.AutoReset = false; // Ensures it only runs once
+        _messageTimer.Enabled = true;
+    }
+
+    private void ClearMessage()
+    {
+        _message = string.Empty;
+        _isError = false;
+        _messageTimer?.Dispose(); // Dispose timer when message is cleared manually or by timer
+    }
+
+    private async void HandleTimerElapsed(object sender, ElapsedEventArgs e)
+    {
+        await InvokeAsync(() =>
+        {
+            ClearMessage();
+            StateHasChanged(); // Notify Blazor that the state has changed
+        });
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (firstRender)
+            {
+                if (JSRuntime != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("initializeBootstrapDropdown");
+                }
+            }
+            else
+            {
+                // Re-initialize dropdowns if candidates are re-rendered (e.g., after filtering)
+                if (_filteredCandidates?.Any() == true && JSRuntime != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("initializeBootstrapDropdown");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnAfterRenderAsync JSRuntime: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("console.error", $"Error in OnAfterRenderAsync: {ex.Message}");
+        }
+    }
+}
+
+
+
+

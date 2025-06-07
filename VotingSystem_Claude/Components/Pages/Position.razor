@@ -1,0 +1,452 @@
+﻿@page "/positions/{ElectionId:int}"
+@using VotingSystem_Claude.Models
+@using VotingSystem_Claude.Services.Interfaces
+@inject VotingSystem_Claude.Services.Interfaces.IPositionService PositionService
+@inject IElectionService ElectionService
+@inject ICandidateService CandidateService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>Manage Positions</h2>
+                    @if (_election != null)
+                    {
+                        <h5 class="text-muted">Election: @_election.Title</h5>
+                    }
+                </div>
+                <div>
+                    <button class="btn btn-primary me-2" @onclick="ShowAddPositionModal">
+                        <i class="bi bi-plus-circle me-2"></i>Add New Position
+                    </button>
+                    <button class="btn btn-outline-secondary" @onclick="GoBackToElections">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Elections
+                    </button>
+                </div>
+            </div>
+
+            @if (_loading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }
+            else if (_positions.Any())
+            {
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Positions List</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped mb-0">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Order</th>
+                                        <th>Title</th>
+                                        <th>Description</th>
+                                        <th>Max Selections</th>
+                                        <th>Candidates</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var position in _positions.OrderBy(p => p.DisplayOrder))
+                                    {
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-secondary">@position.DisplayOrder</span>
+                                            </td>
+                                            <td>
+                                                <strong>@position.Title</strong>
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(position.Description))
+                                                {
+                                                    <small class="text-muted">@position.Description</small>
+                                                }
+                                                else
+                                                {
+                                                    <small class="text-muted fst-italic">No description</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">@position.MaxSelectableOptions</span>
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var candidateCount = _candidateCounts.ContainsKey(position.Id) ? _candidateCounts[position.Id] : 0;
+                                                }
+                                                <span class="badge bg-success">@candidateCount candidates</span>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ManageCandidates(position.Id)">
+                                                        <i class="bi bi-people me-1"></i>Candidates
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditPosition(position)">
+                                                        <i class="bi bi-pencil me-1"></i>Edit
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDeletePosition(position)">
+                                                        <i class="bi bi-trash me-1"></i>Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                @if (_positions.Count > 1)
+                {
+                    <div class="card mt-3">
+                        <div class="card-header bg-warning">
+                            <h6 class="mb-0">
+                                <i class="bi bi-arrow-up-down me-2"></i>Reorder Positions
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">Use the buttons below to change the display order of positions.</p>
+                            @foreach (var position in _positions.OrderBy(p => p.DisplayOrder))
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                                    <span>@position.DisplayOrder. @position.Title</span>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                @onclick="() => MovePositionUp(position)"
+                                                disabled="@(_positions.OrderBy(p => p.DisplayOrder).First().Id == position.Id)">
+                                            <i class="bi bi-arrow-up"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                @onclick="() => MovePositionDown(position)"
+                                                disabled="@(_positions.OrderBy(p => p.DisplayOrder).Last().Id == position.Id)">
+                                            <i class="bi bi-arrow-down"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="alert alert-info text-center">
+                    <h4>No Positions Found</h4>
+                    <p>No positions have been created for this election yet.</p>
+                    <button class="btn btn-primary" @onclick="ShowAddPositionModal">
+                        <i class="bi bi-plus-circle me-2"></i>Add First Position
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Position Modal -->
+<div class="modal fade @(_showPositionModal ? "show" : "")" id="positionModal" tabindex="-1"
+     style="display: @(_showPositionModal ? "block" : "none")" aria-hidden="@(!_showPositionModal)">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@(_editingPosition?.Id > 0 ? "Edit Position" : "Add New Position")</h5>
+                <button type="button" class="btn-close" @onclick="ClosePositionModal"></button>
+            </div>
+            <form @onsubmit="SavePosition">
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div class="alert alert-danger">@_errorMessage</div>
+                    }
+
+                    <div class="mb-3">
+                        <label for="positionTitle" class="form-label">Position Title *</label>
+                        <input type="text" class="form-control" id="positionTitle" @bind="_editingPosition.Title" required maxlength="100" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="positionDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="positionDescription" rows="3" @bind="_editingPosition.Description"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="maxSelections" class="form-label">Maximum Selectable Options</label>
+                        <input type="number" class="form-control" id="maxSelections" @bind="_editingPosition.MaxSelectableOptions" min="1" max="10" />
+                        <div class="form-text">How many candidates can a voter select for this position?</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="displayOrder" class="form-label">Display Order</label>
+                        <input type="number" class="form-control" id="displayOrder" @bind="_editingPosition.DisplayOrder" min="1" />
+                        <div class="form-text">The order in which this position will appear in the ballot.</div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="ClosePositionModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">
+                        @if (_saving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        }
+                        @(_editingPosition?.Id > 0 ? "Update Position" : "Add Position")
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade @(_showDeleteModal ? "show" : "")" id="deleteModal" tabindex="-1"
+     style="display: @(_showDeleteModal ? "block" : "none")" aria-hidden="@(!_showDeleteModal)">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" @onclick="CloseDeleteModal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the position "<strong>@_positionToDelete?.Title</strong>"?</p>
+                <div class="alert alert-warning">
+                    <strong>Warning:</strong> This will also delete all candidates associated with this position and cannot be undone.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="DeletePosition" disabled="@_deleting">
+                    @if (_deleting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    }
+                    Delete Position
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_showPositionModal || _showDeleteModal)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter] public int ElectionId { get; set; }
+
+    private bool _loading = true;
+    private bool _saving = false;
+    private bool _deleting = false;
+    private List<VotingSystem_Claude.Models.Position> _positions = new();
+    private Dictionary<int, int> _candidateCounts = new();
+    private Election _election;
+    private string _errorMessage = string.Empty;
+
+    // Modal states
+    private bool _showPositionModal = false;
+    private bool _showDeleteModal = false;
+    private VotingSystem_Claude.Models.Position _editingPosition = new();
+    private VotingSystem_Claude.Models.Position _positionToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        try
+        {
+            _election = await ElectionService.GetElectionByIdAsync(ElectionId);
+            _positions = await PositionService.GetPositionsByElectionIdAsync(ElectionId);
+
+            // Load candidate counts for each position
+            _candidateCounts.Clear();
+            foreach (var position in _positions)
+            {
+                var candidates = await CandidateService.GetCandidatesByPositionIdAsync(position.Id);
+                _candidateCounts[position.Id] = candidates.Count;
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ShowAddPositionModal()
+    {
+        _editingPosition = new VotingSystem_Claude.Models.Position
+        {
+            ElectionId = ElectionId,
+            MaxSelectableOptions = 1,
+            DisplayOrder = _positions.Count + 1
+        };
+        _errorMessage = string.Empty;
+        _showPositionModal = true;
+    }
+
+    private void EditPosition(VotingSystem_Claude.Models.Position position)
+    {
+        _editingPosition = new VotingSystem_Claude.Models.Position
+        {
+            Id = position.Id,
+            Title = position.Title,
+            Description = position.Description,
+            MaxSelectableOptions = position.MaxSelectableOptions,
+            DisplayOrder = position.DisplayOrder,
+            ElectionId = position.ElectionId
+        };
+        _errorMessage = string.Empty;
+        _showPositionModal = true;
+    }
+
+    private void ClosePositionModal()
+    {
+        _showPositionModal = false;
+        _editingPosition = new VotingSystem_Claude.Models.Position();
+        _errorMessage = string.Empty;
+    }
+
+    private async Task SavePosition()
+    {
+        if (string.IsNullOrWhiteSpace(_editingPosition.Title))
+        {
+            _errorMessage = "Position title is required.";
+            return;
+        }
+
+        _saving = true;
+        _errorMessage = string.Empty;
+
+        try
+        {
+            if (_editingPosition.Id > 0)
+            {
+                // Update existing position
+                var success = await PositionService.UpdatePositionAsync(_editingPosition);
+                if (!success)
+                {
+                    _errorMessage = "Failed to update position.";
+                    return;
+                }
+            }
+            else
+            {
+                // Create new position
+                _editingPosition.ElectionId = ElectionId;
+                await PositionService.CreatePositionAsync(_editingPosition);
+            }
+
+            ClosePositionModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "An error occurred while saving the position.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void ConfirmDeletePosition(VotingSystem_Claude.Models.Position position)
+    {
+        _positionToDelete = position;
+        _showDeleteModal = true;
+    }
+
+    private void CloseDeleteModal()
+    {
+        _showDeleteModal = false;
+        _positionToDelete = null;
+    }
+
+    private async Task DeletePosition()
+    {
+        if (_positionToDelete == null) return;
+
+        _deleting = true;
+        try
+        {
+            var success = await PositionService.DeletePositionAsync(_positionToDelete.Id);
+            if (success)
+            {
+                CloseDeleteModal();
+                await LoadData();
+            }
+            else
+            {
+                _errorMessage = "Failed to delete position.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "An error occurred while deleting the position.";
+        }
+        finally
+        {
+            _deleting = false;
+        }
+    }
+
+    private void ManageCandidates(int positionId)
+    {
+        NavigationManager.NavigateTo($"/candidates/{positionId}");
+    }
+
+    private void GoBackToElections()
+    {
+        NavigationManager.NavigateTo("/elections");
+    }
+
+    private async Task MovePositionUp(VotingSystem_Claude.Models.Position position)
+    {
+        var orderedPositions = _positions.OrderBy(p => p.DisplayOrder).ToList();
+        var currentIndex = orderedPositions.FindIndex(p => p.Id == position.Id);
+
+        if (currentIndex > 0)
+        {
+            // Swap display orders
+            var previousPosition = orderedPositions[currentIndex - 1];
+            var tempOrder = position.DisplayOrder;
+            position.DisplayOrder = previousPosition.DisplayOrder;
+            previousPosition.DisplayOrder = tempOrder;
+
+            // Update both positions
+            var positionsToUpdate = new List<VotingSystem_Claude.Models.Position> { position, previousPosition };
+            await PositionService.UpdatePositionOrderAsync(positionsToUpdate);
+            await LoadData();
+        }
+    }
+
+    private async Task MovePositionDown(VotingSystem_Claude.Models.Position position)
+    {
+        var orderedPositions = _positions.OrderBy(p => p.DisplayOrder).ToList();
+        var currentIndex = orderedPositions.FindIndex(p => p.Id == position.Id);
+
+        if (currentIndex < orderedPositions.Count - 1)
+        {
+            // Swap display orders
+            var nextPosition = orderedPositions[currentIndex + 1];
+            var tempOrder = position.DisplayOrder;
+            position.DisplayOrder = nextPosition.DisplayOrder;
+            nextPosition.DisplayOrder = tempOrder;
+
+            // Update both positions
+            var positionsToUpdate = new List<VotingSystem_Claude.Models.Position> { position, nextPosition };
+            await PositionService.UpdatePositionOrderAsync(positionsToUpdate);
+            await LoadData();
+        }
+    }
+}
