@@ -22,6 +22,9 @@ namespace VotingSystem_Claude.Models
 
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
+        [StringLength(100)]
+        public string? Location { get; set; }
+
         // Navigation properties
         public virtual Voter Voter { get; set; }
         public virtual Candidate Candidate { get; set; }

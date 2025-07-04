@@ -22,7 +22,7 @@ namespace VotingSystem_Claude.Services
             do
             {
                 code = GenerateCode();
-            } while (await _context.Voters.AnyAsync(v => v.VoterCode == code));
+            } while (await _context.Voters.AnyAsync(v => v.VoterCode.Code == code));
 
             return code;
         }
@@ -34,7 +34,7 @@ namespace VotingSystem_Claude.Services
                 return false;
             }
 
-            return await _context.Voters.AnyAsync(v => v.VoterCode == voterCode);
+            return await _context.Voters.AnyAsync(v => v.VoterCode.Code == voterCode);
         }
 
         public async Task<bool> AssignVoterCodeAsync(int voterId, string voterCode)
@@ -46,12 +46,17 @@ namespace VotingSystem_Claude.Services
             }
 
             // Check if the code is already in use
-            if (await _context.Voters.AnyAsync(v => v.VoterCode == voterCode && v.Id != voterId))
+            if (await _context.Voters.AnyAsync(v => v.VoterCode.Code == voterCode && v.Id != voterId))
             {
                 return false;
             }
 
-            voter.VoterCode = voterCode;
+            voter.VoterCode = new VoterCode 
+            { 
+                Code = voterCode,
+                GeneratedAt = DateTime.UtcNow,
+                IsUsed = false
+            };
             await _context.SaveChangesAsync();
             return true;
         }
@@ -90,12 +95,17 @@ namespace VotingSystem_Claude.Services
                 do
                 {
                     code = GenerateCode();
-                } while (await _context.Voters.AnyAsync(v => v.VoterCode == code));
+                } while (await _context.Voters.AnyAsync(v => v.VoterCode.Code == code));
 
                 var voter = new Voter
                 {
                     StudentId = student.Id,
-                    VoterCode = code,
+                    VoterCode = new VoterCode 
+                    { 
+                        Code = code,
+                        GeneratedAt = DateTime.UtcNow,
+                        IsUsed = false
+                    },
                     HasVoted = false,
                     CreatedAt = DateTime.UtcNow
                 };

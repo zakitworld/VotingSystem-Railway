@@ -8,10 +8,6 @@ namespace VotingSystem_Claude.Models
         [Key]
         public int Id { get; set; }
 
-        [Required]
-        [StringLength(20)]
-        public string VoterCode { get; set; }
-
         public bool HasVoted { get; set; }
 
         [ForeignKey("Student")]
@@ -24,5 +20,6 @@ namespace VotingSystem_Claude.Models
         // Navigation properties
         public virtual Student Student { get; set; }
         public virtual ICollection<Vote> Votes { get; set; }
+        public virtual VoterCode VoterCode { get; set; }
     }
 }

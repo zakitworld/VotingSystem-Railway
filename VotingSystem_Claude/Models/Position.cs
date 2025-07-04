@@ -24,5 +24,6 @@ namespace VotingSystem_Claude.Models
         // Navigation properties
         public virtual Election Election { get; set; }
         public virtual ICollection<Candidate> Candidates { get; set; }
+        public virtual ICollection<Vote> Votes { get; set; }
     }
 }

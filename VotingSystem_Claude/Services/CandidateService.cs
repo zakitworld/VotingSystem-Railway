@@ -138,5 +138,10 @@ namespace VotingSystem_Claude.Services
 
             return Path.Combine("images", "candidates", uniqueFileName).Replace("\\", "/");
         }
+
+        public async Task<List<Candidate>> GetAllCandidatesAsync()
+        {
+            return await _context.Candidates.ToListAsync();
+        }
     }
 }

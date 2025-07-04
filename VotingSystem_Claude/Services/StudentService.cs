@@ -51,7 +51,12 @@ namespace VotingSystem_Claude.Services
                 StudentId = student.Id,
                 HasVoted = false,
                 CreatedAt = DateTime.UtcNow,
-                VoterCode = await _voterCodeService.GenerateVoterCodeAsync() // Generate a code
+                VoterCode = new VoterCode 
+                { 
+                    Code = await _voterCodeService.GenerateVoterCodeAsync(),
+                    GeneratedAt = DateTime.UtcNow,
+                    IsUsed = false
+                }
             };
             await _voterService.CreateVoterAsync(voter);
 
@@ -60,7 +65,15 @@ namespace VotingSystem_Claude.Services
 
         public async Task<bool> UpdateStudentAsync(Student student)
         {
-            _context.Entry(student).State = EntityState.Modified;
+            var existingStudent = await _context.Students.FindAsync(student.Id);
+            if (existingStudent == null)
+            {
+                return false; // Student not found
+            }
+
+            // Update properties of the existing (tracked) entity
+            _context.Entry(existingStudent).CurrentValues.SetValues(student);
+
             try
             {
                 await _context.SaveChangesAsync();

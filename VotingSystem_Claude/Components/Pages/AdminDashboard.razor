@@ -6,6 +6,7 @@
 @inject IResultsService ResultsService
 @inject IVoterService VoterService
 @inject IElectionService ElectionService
+@inject ICandidateService CandidateService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 
@@ -415,42 +416,37 @@ else
 
     private async Task LoadDashboardData()
     {
-        try
+        _loading = true;
+        _totalElections = (await ElectionService.GetAllElectionsAsync()).Count();
+        _totalVoters = (await VoterService.GetAllVotersAsync()).Count();
+        _totalCandidates = (await CandidateService.GetAllCandidatesAsync()).Count();
+        _activeElection = await ElectionService.GetActiveElectionAsync();
+
+        if (_activeElection != null)
         {
-            // Load all elections
-            var allElections = await ElectionService.GetAllElectionsAsync();
-            _totalElections = allElections.Count;
-            _recentElections = allElections.OrderByDescending(e => e.CreatedAt).ToList();
-            
-            // Get active election
-            _activeElection = await ElectionService.GetActiveElectionAsync();
-            
-            // Load voter statistics
-            var allVoters = await VoterService.GetAllVotersAsync();
-            _totalVoters = allVoters.Count;
-            
-            // Calculate candidates and voting statistics
-            if (_activeElection != null)
+            _votersWhoVoted = await ResultsService.GetTotalVotersAsync(_activeElection.Id);
+            if (_totalVoters > 0)
             {
-                _totalCandidates = _activeElection.Positions?.Sum(p => p.Candidates?.Count ?? 0) ?? 0;
-                _votersWhoVoted = await ResultsService.GetTotalVotersAsync(_activeElection.Id);
-                
-                if (_totalVoters > 0)
-                {
-                    _voterTurnoutPercentage = ((double)_votersWhoVoted / _totalVoters) * 100;
-                }
+                _voterTurnoutPercentage = (_votersWhoVoted * 100.0 / _totalVoters);
             }
             else
             {
-                // If no active election, get total candidates from all elections
-                _totalCandidates = allElections.Sum(e => e.Positions?.Sum(p => p.Candidates?.Count ?? 0) ?? 0);
+                _voterTurnoutPercentage = 0.0;
             }
         }
-        catch (Exception ex)
+        else
         {
-            // Handle any errors loading dashboard data
-            Console.WriteLine($"Error loading dashboard data: {ex.Message}");
+            _votersWhoVoted = 0;
+            _voterTurnoutPercentage = 0.0;
         }
+
+        _recentElections = (await ElectionService.GetAllElectionsAsync())
+            .Where(e => e.Id != _activeElection?.Id)
+            .OrderByDescending(e => e.StartDate)
+            .Take(5)
+            .ToList();
+
+        _loading = false;
     }
 
     private async Task RefreshData()

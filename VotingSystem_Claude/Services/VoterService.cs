@@ -34,7 +34,7 @@ namespace VotingSystem_Claude.Services
         {
             return await _context.Voters
                 .Include(v => v.Student)
-                .FirstOrDefaultAsync(v => v.VoterCode == voterCode);
+                .FirstOrDefaultAsync(v => v.VoterCode.Code == voterCode);
         }
 
         public async Task<Voter> CreateVoterAsync(Voter voter)
@@ -105,7 +105,13 @@ namespace VotingSystem_Claude.Services
                 return false;
             }
 
-            voter.VoterCode = await _voterCodeService.GenerateVoterCodeAsync();
+            var newCode = await _voterCodeService.GenerateVoterCodeAsync();
+            voter.VoterCode = new VoterCode 
+            { 
+                Code = newCode,
+                GeneratedAt = DateTime.UtcNow,
+                IsUsed = false
+            };
             await _context.SaveChangesAsync();
             return true;
         }

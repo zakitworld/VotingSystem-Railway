@@ -165,9 +165,9 @@
                                                     <span class="badge bg-info">@voter.Student.House</span>
                                                 </td>
                                                 <td>
-                                                    <code class="bg-light p-1 rounded">@voter.VoterCode</code>
+                                                    <code class="bg-light p-1 rounded">@voter.VoterCode.Code</code>
                                                     <button class="btn btn-sm btn-outline-secondary ms-1"
-                                                            @onclick="() => CopyToClipboard(voter.VoterCode)"
+                                                            @onclick="() => CopyToClipboard(voter.VoterCode.Code)"
                                                             title="Copy code">
                                                         <i class="bi bi-clipboard"></i>
                                                     </button>
@@ -348,7 +348,7 @@
 
             foreach (var voter in voters)
             {
-                if (string.IsNullOrEmpty(voter.VoterCode))
+                if (string.IsNullOrEmpty(voter.VoterCode.Code))
                 {
                     var newCode = await VoterCodeService.GenerateVoterCodeAsync();
                     if (await VoterCodeService.AssignVoterCodeAsync(voter.Id, newCode))
@@ -441,7 +441,7 @@
             _filteredVoters = _voters.Where(v =>
                 v.Student.FullName.ToLower().Contains(term) ||
                 v.Student.StudentId.ToLower().Contains(term) ||
-                v.VoterCode.ToLower().Contains(term) ||
+                v.VoterCode.Code.ToLower().Contains(term) ||
                 v.Student.Class?.ToLower().Contains(term) == true ||
                 v.Student.House?.ToLower().Contains(term) == true
             ).ToList();
@@ -481,7 +481,7 @@
             foreach (var voter in _voters)
             {
                 csv += $"{voter.Student.StudentId},{voter.Student.FullName},{voter.Student.Class},{voter.Student.House}," +
-                       $"{voter.VoterCode},{(voter.HasVoted ? "Voted" : "Pending")}," +
+                       $"{voter.VoterCode.Code},{(voter.HasVoted ? "Voted" : "Pending")}," +
                        $"{(voter.LastLoginTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never")}\n";
             }
             var bytes = System.Text.Encoding.UTF8.GetBytes(csv);

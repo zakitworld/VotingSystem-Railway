@@ -1,0 +1,298 @@
+@page "/analytics"
+@using VotingSystem_Claude.Services.Interfaces
+@using VotingSystem_Claude.Models
+@inject IAnalyticsService AnalyticsService
+@inject IElectionService ElectionService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Analytics - School Voting System</PageTitle>
+
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="bi bi-graph-up me-2"></i>
+                        Analytics Dashboard
+                    </h1>
+                    <p class="text-muted mb-0">View detailed analytics and reports</p>
+                </div>
+                <div>
+                    <button class="btn btn-outline-primary me-2" @onclick="RefreshData">
+                        <i class="bi bi-arrow-clockwise me-1"></i>
+                        Refresh
+                    </button>
+                    <button class="btn btn-outline-success" @onclick="ExportData">
+                        <i class="bi bi-download me-1"></i>
+                        Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading analytics data...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-people me-2"></i>
+                            Voter Analytics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_voterAnalytics != null)
+                        {
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <h6 class="text-muted mb-1">Total Voters</h6>
+                                        <h3>@_voterAnalytics.TotalVoters</h3>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <h6 class="text-muted mb-1">Votes Cast</h6>
+                                        <h3>@_voterAnalytics.VotedCount</h3>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <h6 class="text-muted mb-2">Turnout Percentage</h6>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: @(_voterAnalytics.TurnoutPercentage)%"
+                                         aria-valuenow="@_voterAnalytics.TurnoutPercentage" 
+                                         aria-valuemin="0" aria-valuemax="100">
+                                        @_voterAnalytics.TurnoutPercentage.ToString("F1")%
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-clock-history me-2"></i>
+                            Real-time Statistics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_realTimeStats != null)
+                        {
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <h6 class="text-muted mb-1">Active Voters</h6>
+                                        <h3>@_realTimeStats.ActiveVoters</h3>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <h6 class="text-muted mb-1">Votes in Last Hour</h6>
+                                        <h3>@_realTimeStats.VotesCastInLastHour</h3>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <h6 class="text-muted mb-2">Recent Activity</h6>
+                                <div class="list-group">
+                                    @foreach (var activity in _realTimeStats.RecentActivity.Take(5))
+                                    {
+                                        <div class="list-group-item">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <small class="text-muted">@activity.Timestamp.ToString("HH:mm:ss")</small>
+                                                    <div>@activity.Position - @activity.Candidate</div>
+                                                </div>
+                                                <small class="text-muted">@activity.Location</small>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-bar-chart me-2"></i>
+                            Voting Trends
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_trendAnalysis != null)
+                        {
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <canvas id="turnoutTrendChart"></canvas>
+                                </div>
+                                <div class="col-md-6">
+                                    <canvas id="participationTrendChart"></canvas>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-file-earmark-text me-2"></i>
+                            Report Templates
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_reportTemplates != null)
+                        {
+                            <div class="list-group">
+                                @foreach (var template in _reportTemplates)
+                                {
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">@template.Name</h6>
+                                                <p class="text-muted mb-0">@template.Description</p>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => GenerateReport(template.Name)">
+                                                Generate
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-geo-alt me-2"></i>
+                            Location Analytics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_voterTurnoutStats != null)
+                        {
+                            <div class="mb-3">
+                                <h6 class="text-muted mb-2">Turnout by Location</h6>
+                                <div class="list-group">
+                                    @foreach (var location in _voterTurnoutStats.TurnoutByLocation)
+                                    {
+                                        <div class="list-group-item">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>@location.Key</div>
+                                                <div>
+                                                    <span class="badge bg-primary">@location.Value votes</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private VoterAnalytics _voterAnalytics;
+    private RealTimeStats _realTimeStats;
+    private VoterTurnoutStats _voterTurnoutStats;
+    private TrendAnalysis _trendAnalysis;
+    private List<ReportTemplate> _reportTemplates;
+    private int _selectedElectionId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        try
+        {
+            var elections = await ElectionService.GetAllElectionsAsync();
+            _selectedElectionId = elections.FirstOrDefault()?.Id ?? 0;
+
+            if (_selectedElectionId > 0)
+            {
+                _voterAnalytics = await AnalyticsService.GetVoterAnalyticsAsync(_selectedElectionId);
+                _realTimeStats = await AnalyticsService.GetRealTimeStatsAsync(_selectedElectionId);
+                _voterTurnoutStats = await AnalyticsService.GetVoterTurnoutStatsAsync(_selectedElectionId);
+                _trendAnalysis = await AnalyticsService.GetVotingTrendsAsync(
+                    DateTime.UtcNow.AddDays(-30),
+                    DateTime.UtcNow
+                );
+            }
+
+            _reportTemplates = await AnalyticsService.GetAvailableReportTemplatesAsync();
+        }
+        catch (Exception ex)
+        {
+            // Handle error
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadData();
+    }
+
+    private async Task ExportData()
+    {
+        if (_selectedElectionId > 0)
+        {
+            var data = await AnalyticsService.ExportResultsAsync(_selectedElectionId, "CSV");
+            // Handle file download
+        }
+    }
+
+    private async Task GenerateReport(string reportType)
+    {
+        if (_selectedElectionId > 0)
+        {
+            var report = await AnalyticsService.GenerateReportAsync(_selectedElectionId, reportType);
+            // Handle file download
+        }
+    }
+} 

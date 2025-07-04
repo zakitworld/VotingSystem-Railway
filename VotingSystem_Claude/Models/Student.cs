@@ -23,6 +23,8 @@ namespace VotingSystem_Claude.Models
 
         public string Gender { get; set; }
 
+        public DateTime DateOfBirth { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties

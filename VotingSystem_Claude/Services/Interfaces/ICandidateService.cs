@@ -14,5 +14,6 @@ namespace VotingSystem_Claude.Services.Interfaces
         Task<bool> ValidateUniqueNamePerPositionAsync(string fullName, int positionId, int? excludeCandidateId = null);
         Task<List<Candidate>> SearchCandidatesAsync(string searchTerm, int? electionId = null);
         Task<string> UploadCandidateImageAsync(IBrowserFile imageFile);
+        Task<List<Candidate>> GetAllCandidatesAsync();
     }
 } 

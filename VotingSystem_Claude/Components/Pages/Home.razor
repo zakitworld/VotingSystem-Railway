@@ -9,29 +9,42 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 text-center">
-            <img src="images/school-logo.png" alt="School Logo" class="mb-4" style="max-width: 200px;" />
-            <h1 class="display-4">Welcome to @SchoolName</h1>
-            <h2 class="h3 mb-4">Student Electoral Commission</h2>
+@if (_redirecting)
+{
+    <div class="container mt-5 text-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3">Redirecting...</p>
+    </div>
+}
+else
+{
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <img src="images/Accra_High_School_logo.jpg" alt="School Logo" class="mb-4" style="max-width: 200px;" />
+                <h1 class="display-4">Welcome to @SchoolName</h1>
+                <h2 class="h3 mb-4">Student Electoral Commission</h2>
 
-            @if (_loading)
-            {
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-            }
-            else
-            {
-                if (_voter != null)
+                @if (_loading)
                 {
-                    NavigationManager.NavigateTo("/voter-dashboard", true);
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <div class="alert alert-danger text-center">@_errorMessage</div>
+                }
+                else if (_voter != null)
+                {
+                    NavigationManager.NavigateTo("/voter-dashboard");
                     return;
                 }
                 else if (_isAdmin)
                 {
-                    NavigationManager.NavigateTo("/admin-dashboard", true);
+                    NavigationManager.NavigateTo("/admin-dashboard");
                     return;
                 }
                 else
@@ -41,11 +54,6 @@
                             <h3 class="mb-0">Login</h3>
                         </div>
                         <div class="card-body">
-                            @if (!string.IsNullOrEmpty(_errorMessage))
-                            {
-                                <div class="alert alert-danger">@_errorMessage</div>
-                            }
-
                             <ul class="nav nav-tabs mb-3" id="loginTabs" role="tablist">
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link @( _activeTab == "voter" ? "active" : "" )"
@@ -98,10 +106,10 @@
                         </div>
                     </div>
                 }
-            }
+            </div>
         </div>
     </div>
-</div>
+}
 
 @code {
     private string SchoolName = "Our School"; // You can make this configurable
@@ -117,13 +125,9 @@
     private string _adminPassword;
     private string _errorMessage;
     private string _activeTab = "voter";
+    private bool _redirecting = false;
 
     protected override async Task OnInitializedAsync()
-    {
-        await LoadPageData();
-    }
-
-    private async Task LoadPageData()
     {
         try
         {
@@ -135,95 +139,87 @@
 
             if (_voter != null)
             {
-                _activeElection = await ElectionService.GetActiveElectionAsync();
-                if (_activeElection != null)
-                {
-                    _hasVoted = await VotingService.HasVotedInElectionAsync(_voter.Id, _activeElection.Id);
-                }
+                _redirecting = true;
+                NavigationManager.NavigateTo("/voter-dashboard");
+                return; // Exit early if voter is authenticated
             }
-            else if (!_isAdmin)
+            else if (_isAdmin)
             {
-                // If not authenticated as either voter or admin, ensure clean state
-                _voter = null;
-                _isAdmin = false;
-                _activeElection = null;
-                _hasVoted = false;
+                _redirecting = true;
+                NavigationManager.NavigateTo("/admin-dashboard");
+                return; // Exit early if admin is authenticated
             }
+
+            // If not authenticated, proceed to load other page data if needed
+            await LoadPageData();
         }
         catch (Exception ex)
         {
-            _errorMessage = "An error occurred while loading the page. Please try again.";
-            Console.WriteLine($"Error in LoadPageData: {ex.Message}");
+            Console.WriteLine($"Home.razor OnInitializedAsync Error: {ex.Message}\n{ex.StackTrace}");
+            _errorMessage = "An unexpected error occurred during page initialization. Please try again.";
         }
         finally
         {
             _loading = false;
-            StateHasChanged();
+        }
+    }
+
+    private async Task LoadPageData()
+    {
+        // This method will now only be called if the user is not authenticated as a voter or admin
+        // Its purpose is to load election data for displaying on the home/login page if necessary
+        _activeElection = await ElectionService.GetActiveElectionAsync();
+        if (_activeElection != null)
+        {
+            _hasVoted = false;
         }
     }
 
     private async Task LoginVoter()
     {
-        try
+        _loading = true;
+        _errorMessage = string.Empty;
+        var voter = await AuthService.AuthenticateVoterAsync(_voterCode);
+        if (voter != null)
         {
-            _loading = true;
-            _errorMessage = string.Empty;
-            var voter = await AuthService.AuthenticateVoterAsync(_voterCode);
-            if (voter != null)
-            {
-                await LoadPageData(); // Reload data after successful login
-                _voterCode = string.Empty; // Clear the input field
-            }
-            else
-            {
-                _errorMessage = "Invalid voter code.";
-            }
+            _redirecting = true;
+            await LoadPageData();
+            _voterCode = string.Empty;
+            NavigationManager.NavigateTo("/voter-dashboard");
         }
-        catch (Exception ex)
+        else
         {
-            _errorMessage = "An error occurred during login. Please try again.";
-            Console.WriteLine($"Error in LoginVoter: {ex.Message}");
+            _errorMessage = "Invalid voter code.";
         }
-        finally
-        {
-            _loading = false;
-        }
+        _loading = false;
     }
 
     private async Task LoginAdmin()
     {
-        try
+        _loading = true;
+        _errorMessage = string.Empty;
+        var success = await AuthService.AuthenticateAdminAsync(_adminUsername, _adminPassword);
+        if (success)
         {
-            _loading = true;
-            _errorMessage = string.Empty;
-            var success = await AuthService.AuthenticateAdminAsync(_adminUsername, _adminPassword);
-            if (success)
-            {
-                await LoadPageData(); // Reload data after successful login
-                _adminUsername = string.Empty; // Clear the input fields
-                _adminPassword = string.Empty;
-            }
-            else
-            {
-                _errorMessage = "Invalid admin credentials.";
-            }
+            _redirecting = true;
+            await LoadPageData();
+            _adminUsername = string.Empty;
+            _adminPassword = string.Empty;
+            NavigationManager.NavigateTo("/admin-dashboard");
         }
-        catch (Exception ex)
+        else
         {
-            _errorMessage = "An error occurred during login. Please try again.";
-            Console.WriteLine($"Error in LoginAdmin: {ex.Message}");
+            _errorMessage = "Invalid admin credentials.";
         }
-        finally
-        {
-            _loading = false;
-        }
+        _loading = false;
     }
 
     private async Task Logout()
     {
         await AuthService.LogoutAsync();
-        await LoadPageData(); // Reload data after logout
-        NavigationManager.NavigateTo("/"); // Redirect to home or login page
+        _redirecting = true;
+        await LoadPageData();
+        NavigationManager.NavigateTo("/");
     }
 
     private void StartVoting()

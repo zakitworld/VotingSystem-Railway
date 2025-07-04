@@ -65,9 +65,14 @@ namespace VotingSystem_Claude.Services
             }
 
             // Create votes
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
             {
+                // Mark voter as having voted (if this property exists in your Voter model)
+                voter.HasVoted = true;
+                voter.LastLoginTime = DateTime.UtcNow;
+
                 foreach (var kvp in positionCandidateVotes)
                 {
                     var positionId = kvp.Key;
@@ -85,20 +90,9 @@ namespace VotingSystem_Claude.Services
                     _context.Votes.Add(vote);
                 }
 
-                // Mark voter as having voted (if this property exists in your Voter model)
-                voter.HasVoted = true;
-                voter.LastLoginTime = DateTime.UtcNow;
-
                 await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
                 return true;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                // Log the exception or handle it appropriately
-                throw new InvalidOperationException("Failed to submit votes", ex);
-            }
+            });
         }
 
         public async Task<bool> HasVotedInElectionAsync(int voterId, int electionId)
