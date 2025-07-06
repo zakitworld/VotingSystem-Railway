@@ -68,7 +68,7 @@ namespace VotingSystem_Claude.Data
                 .HasOne(v => v.Student)
                 .WithOne(s => s.Voter)
                 .HasForeignKey<Voter>(v => v.StudentId)
-                .OnDelete(DeleteBehavior.NoAction);
+                .OnDelete(DeleteBehavior.Cascade);
 
             builder.Entity<VoterCode>()
                 .HasOne(vc => vc.Voter)
