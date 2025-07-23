@@ -115,7 +115,7 @@
                     <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
                         <i class="bi @(_isError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill") me-2"></i>
                         @_message
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        <button type="button" class="btn-close" @onclick="DismissAlert" aria-label="Close"></button>
                     </div>
                 }
 
@@ -155,22 +155,25 @@
                                         {
                                             <tr class="@(voter.HasVoted ? "table-success" : "")">
                                                 <td>
-                                                    <strong>@voter.Student.StudentId</strong>
+                                                    <strong>@(voter.Student?.StudentId ?? "Unknown")</strong>
                                                 </td>
-                                                <td>@voter.Student.FullName</td>
+                                                <td>@(voter.Student?.FullName ?? "Unknown")</td>
                                                 <td>
-                                                    <span class="badge bg-primary">@voter.Student.Class</span>
-                                                </td>
-                                                <td>
-                                                    <span class="badge bg-info">@voter.Student.House</span>
+                                                    <span class="badge bg-primary">@(voter.Student?.Class ?? "N/A")</span>
                                                 </td>
                                                 <td>
-                                                    <code class="bg-light p-1 rounded">@voter.VoterCode.Code</code>
-                                                    <button class="btn btn-sm btn-outline-secondary ms-1"
-                                                            @onclick="() => CopyToClipboard(voter.VoterCode.Code)"
-                                                            title="Copy code">
-                                                        <i class="bi bi-clipboard"></i>
-                                                    </button>
+                                                    <span class="badge bg-info">@(voter.Student?.House ?? "N/A")</span>
+                                                </td>
+                                                <td>
+                                                    <code class="bg-light p-1 rounded">@((voter.VoterCode?.Code) ?? "N/A")</code>
+                                                    @if (!string.IsNullOrEmpty(voter.VoterCode?.Code))
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-secondary ms-1"
+                                                                @onclick="() => CopyToClipboard(voter.VoterCode.Code)"
+                                                                title="Copy code">
+                                                            <i class="bi bi-clipboard"></i>
+                                                        </button>
+                                                    }
                                                 </td>
                                                 <td>
                                                     @if (voter.HasVoted)
@@ -439,11 +442,11 @@
         {
             var term = _searchTerm.ToLower();
             _filteredVoters = _voters.Where(v =>
-                v.Student.FullName.ToLower().Contains(term) ||
-                v.Student.StudentId.ToLower().Contains(term) ||
-                v.VoterCode.Code.ToLower().Contains(term) ||
-                v.Student.Class?.ToLower().Contains(term) == true ||
-                v.Student.House?.ToLower().Contains(term) == true
+                (v.Student?.FullName?.ToLower().Contains(term) ?? false) ||
+                (v.Student?.StudentId?.ToLower().Contains(term) ?? false) ||
+                (v.VoterCode?.Code?.ToLower().Contains(term) ?? false) ||
+                (v.Student?.Class?.ToLower().Contains(term) ?? false) ||
+                (v.Student?.House?.ToLower().Contains(term) ?? false)
             ).ToList();
         }
         _currentPage = 0; // Reset to first page when filtering
@@ -502,6 +505,12 @@
     private void NavigateBack()
     {
         NavigationManager.NavigateTo("/");
+    }
+
+    private void DismissAlert()
+    {
+        _message = string.Empty;
+        _isError = false;
     }
 }
 <script>

@@ -44,25 +44,25 @@ namespace VotingSystem_Claude.Data
                 .HasOne(v => v.Election)
                 .WithMany(e => e.Votes)
                 .HasForeignKey(v => v.ElectionId)
-                .OnDelete(DeleteBehavior.NoAction);
+                .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<Vote>()
                 .HasOne(v => v.Position)
                 .WithMany(p => p.Votes)
                 .HasForeignKey(v => v.PositionId)
-                .OnDelete(DeleteBehavior.NoAction);
+                .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<Vote>()
                 .HasOne(v => v.Candidate)
                 .WithMany(c => c.Votes)
                 .HasForeignKey(v => v.CandidateId)
-                .OnDelete(DeleteBehavior.NoAction);
+                .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<Vote>()
                 .HasOne(v => v.Voter)
                 .WithMany(v => v.Votes)
                 .HasForeignKey(v => v.VoterId)
-                .OnDelete(DeleteBehavior.NoAction);
+                .OnDelete(DeleteBehavior.Cascade);
 
             builder.Entity<Voter>()
                 .HasOne(v => v.Student)

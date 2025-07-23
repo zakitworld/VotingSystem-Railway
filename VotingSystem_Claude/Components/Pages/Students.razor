@@ -4,6 +4,7 @@
 @using VotingSystem_Claude.Models
 @inject IStudentService StudentService
 @inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
 
 <PageTitle>Students</PageTitle>
 
@@ -12,9 +13,12 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h3>Students Management</h3>
+                <button class="btn btn-outline-secondary" @onclick="NavigateBack">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                </button>
                 <button class="btn btn-primary" @onclick="ShowCreateModal">
                     <i class="fas fa-plus"></i> Add New Student
-                </button>
+                </button>   
             </div>
 
             @if (loading)
@@ -229,5 +233,10 @@
                 await JSRuntime.InvokeVoidAsync("alert", "Error deleting student: " + ex.Message);
             }
         }
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/");
     }
 }

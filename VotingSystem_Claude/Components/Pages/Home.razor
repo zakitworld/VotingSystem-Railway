@@ -11,108 +11,119 @@
 
 @if (_redirecting)
 {
-    <div class="container mt-5 text-center">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
+    <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Redirecting...</p>
         </div>
-        <p class="mt-3">Redirecting...</p>
     </div>
 }
 else
 {
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-8 text-center">
-                <img src="images/Accra_High_School_logo.jpg" alt="School Logo" class="mb-4" style="max-width: 200px;" />
-                <h1 class="display-4">Welcome to @SchoolName</h1>
-                <h2 class="h3 mb-4">Student Electoral Commission</h2>
+    <div class="d-flex flex-column justify-content-center align-items-center" style="min-height:calc( 100vh-60px); padding: 10px 0;">
+        <div class="container-fluid">
+            <div class="row justify-content-center">
+                <div class="col-md-8 col-lg-6 text-center">
+                    <!-- Smaller logo -->
+                    <img src="images/Accra_High_School_logo.png" alt="School Logo" class="mb-2" style="max-width: 100px;" />
 
-                @if (_loading)
-                {
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                }
-                else if (!string.IsNullOrEmpty(_errorMessage))
-                {
-                    <div class="alert alert-danger text-center">@_errorMessage</div>
-                }
-                else if (_voter != null)
-                {
-                    NavigationManager.NavigateTo("/voter-dashboard");
-                    return;
-                }
-                else if (_isAdmin)
-                {
-                    NavigationManager.NavigateTo("/admin-dashboard");
-                    return;
-                }
-                else
-                {
-                    <div class="card mb-4">
-                        <div class="card-header bg-primary text-white">
-                            <h3 class="mb-0">Login</h3>
+                    <!-- Smaller headings -->
+                    <h1 class="h2 text-primary-emphasis mb-2">Welcome to @SchoolName</h1>
+                    <h2 class="h5 mb-4">Student Electoral Commission</h2>
+
+                    @if (_loading)
+                    {
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
                         </div>
-                        <div class="card-body">
-                            <ul class="nav nav-tabs mb-3" id="loginTabs" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link @( _activeTab == "voter" ? "active" : "" )"
-                                            @onclick='() => _activeTab = "voter"'
-                                            type="button" role="tab">Voter</button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link @( _activeTab == "admin" ? "active" : "" )"
-                                            @onclick='() => _activeTab = "admin"'
-                                            type="button" role="tab">Admin</button>
-                                </li>
-                            </ul>
+                    }
+                    else if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div class="alert alert-danger text-center py-2">@_errorMessage</div>
+                    }
+                    else if (_voter != null)
+                    {
+                        NavigationManager.NavigateTo("/voter-dashboard");
+                        return;
+                    }
+                    else if (_isAdmin)
+                    {
+                        NavigationManager.NavigateTo("/admin-dashboard");
+                        return;
+                    }
+                    else
+                    {
+                        <div class="card">
+                            <div class="card-header bg-primary text-white py-2">
+                                <h3 class="mb-0 h5">Login</h3>
+                            </div>
+                            <div class="card-body py-3">
+                                <ul class="nav nav-tabs mb-2" id="loginTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link @( _activeTab == "voter" ? "active" : "" )"
+                                                @onclick='() => _activeTab = "voter"'
+                                                type="button" role="tab">
+                                            Voter
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link @( _activeTab == "admin" ? "active" : "" )"
+                                                @onclick='() => _activeTab = "admin"'
+                                                type="button" role="tab">
+                                            Admin
+                                        </button>
+                                    </li>
+                                </ul>
 
-                            <div class="tab-content" id="loginTabsContent">
-                                @if (_activeTab == "voter")
-                                {
-                                    <div class="tab-pane fade show active" id="voter-login" role="tabpanel">
-                                        <form @onsubmit="LoginVoter" @onsubmit:preventDefault="true">
-                                            <div class="form-group mb-3">
-                                                <label for="voterCode">Voter Code</label>
-                                                <input type="text" class="form-control" id="voterCode"
-                                                       @bind="_voterCode" placeholder="Enter your voter code"
-                                                       required />
-                                            </div>
-                                            <button type="submit" class="btn btn-primary btn-block">Login as Voter</button>
-                                        </form>
-                                    </div>
-                                }
-                                else if (_activeTab == "admin")
-                                {
-                                    <div class="tab-pane fade show active" id="admin-login" role="tabpanel">
-                                        <form @onsubmit="LoginAdmin" @onsubmit:preventDefault="true">
-                                            <div class="form-group mb-3">
-                                                <label for="adminUsername">Username</label>
-                                                <input type="text" class="form-control" id="adminUsername"
-                                                       @bind="_adminUsername" placeholder="Enter admin username"
-                                                       required />
-                                            </div>
-                                            <div class="form-group mb-3">
-                                                <label for="adminPassword">Password</label>
-                                                <input type="password" class="form-control" id="adminPassword"
-                                                       @bind="_adminPassword" placeholder="Enter admin password"
-                                                       required />
-                                            </div>
-                                            <button type="submit" class="btn btn-primary btn-block">Login as Admin</button>
-                                        </form>
-                                    </div>
-                                }
+                                <div class="tab-content" id="loginTabsContent">
+                                    @if (_activeTab == "voter")
+                                    {
+                                        <div class="tab-pane fade show active" id="voter-login" role="tabpanel">
+                                            <form @onsubmit="LoginVoter" @onsubmit:preventDefault="true">
+                                                <div class="form-group mb-2">
+                                                    <label for="voterCode" class="form-label">Voter Code</label>
+                                                    <input type="text" class="form-control" id="voterCode"
+                                                           @bind="_voterCode" placeholder="Enter your voter code"
+                                                           required />
+                                                </div>
+                                                <button type="submit" class="btn btn-primary w-100">Login as Voter</button>
+                                            </form>
+                                        </div>
+                                    }
+                                    else if (_activeTab == "admin")
+                                    {
+                                        <div class="tab-pane fade show active" id="admin-login" role="tabpanel">
+                                            <form @onsubmit="LoginAdmin" @onsubmit:preventDefault="true">
+                                                <div class="form-group mb-3">
+                                                    <label for="adminUsername" class="form-label">Username</label>
+                                                    <input type="text" class="form-control" id="adminUsername"
+                                                           @bind="_adminUsername" placeholder="Enter admin username"
+                                                           required />
+                                                </div>
+                                                <div class="form-group mb-3">
+                                                    <label for="adminPassword" class="form-label">Password</label>
+                                                    <input type="password" class="form-control" id="adminPassword"
+                                                           @bind="_adminPassword" placeholder="Enter admin password"
+                                                           required />
+                                                </div>
+                                                <button type="submit" class="btn btn-primary w-100">Login as Admin</button>
+                                            </form>
+                                        </div>
+                                    }
+                                </div>
                             </div>
                         </div>
-                    </div>
-                }
+                    }
+                </div>
             </div>
         </div>
     </div>
 }
 
 @code {
-    private string SchoolName = "Our School"; // You can make this configurable
+    private string SchoolName = "Dabala Senior High Technical School"; // You can make this configurable
     private bool _loading = true;
     private Models.Voter _voter;
     private Election _activeElection;

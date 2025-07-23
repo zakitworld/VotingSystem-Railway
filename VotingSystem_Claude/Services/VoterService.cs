@@ -20,6 +20,7 @@ namespace VotingSystem_Claude.Services
         {
             return await _context.Voters
                 .Include(v => v.Student)
+                .Include(v => v.VoterCode)
                 .ToListAsync();
         }
 
