@@ -4,20 +4,23 @@
 @using VotingSystem_Claude.Models
 @using Microsoft.AspNetCore.Components
 @using Microsoft.JSInterop
+@implements IDisposable
 @inject IElectionService ElectionService
 @inject IVotingService VotingService
 @inject IAuthService AuthService
+@inject IRetryService RetryService
+@inject IConnectivityService ConnectivityService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 
 <div class="container mt-4">
     @if (_loading)
     {
-        <div class="d-flex justify-content-center">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-        </div>
+        <LoadingSpinner Show="true" 
+                      Message="Loading election data..." 
+                      SubMessage="Please wait while we prepare your ballot"
+                      LoadingType="skeleton" 
+                      ShowBackground="true" />
     }
     else if (_voter == null)
     {
@@ -51,12 +54,57 @@
                 <div class="card">
                     <div class="card-header bg-primary text-white">
                         <h3>@_election.Title</h3>
-                        <p class="mb-0">@_election.Description</p>
+                        <p class="mb-2">@_election.Description</p>
+                        
+                        <!-- Progress Indicator -->
+                        <div class="progress-container">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small>Voting Progress</small>
+                                <small>@GetCompletedPositions() / @GetTotalPositions() positions completed</small>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-success" 
+                                     role="progressbar" 
+                                     style="width: @GetProgressPercentage()%" 
+                                     aria-valuenow="@GetCompletedPositions()" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="@GetTotalPositions()">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body">
+                        @if (!_isConnected)
+                        {
+                            <div class="alert alert-warning">
+                                <i class="bi bi-wifi-off me-2"></i>
+                                <strong>No Internet Connection</strong>
+                                <p class="mb-2">Please check your network connection and try again.</p>
+                                <button class="btn btn-sm btn-outline-primary" @onclick="CheckConnectivity">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>
+                                    Retry Connection
+                                </button>
+                            </div>
+                        }
+                        
                         @if (!string.IsNullOrEmpty(_errorMessage))
                         {
-                            <div class="alert alert-danger">@_errorMessage</div>
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                @_errorMessage
+                                @if (_canRetry)
+                                {
+                                    <br />
+                                    <button class="btn btn-sm btn-outline-danger mt-2" @onclick="RetryLastOperation" disabled="@_retrying">
+                                        @if (_retrying)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                        }
+                                        <i class="bi bi-arrow-clockwise me-1"></i>
+                                        Retry
+                                    </button>
+                                }
+                            </div>
                         }
 
                         @if (_election.Positions?.Any() == true)
@@ -64,11 +112,43 @@
                             @foreach (var position in _election.Positions.OrderBy(p => p.DisplayOrder))
                             {
                                 <div class="position-section mb-5">
-                                    <h4 class="border-bottom pb-2">@position.Title</h4>
+                                    <h4 class="border-bottom pb-2 d-flex justify-content-between align-items-center">
+                                        @position.Title
+                                        @if (IsPositionCompleted(position.Id))
+                                        {
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle me-1"></i>
+                                                Complete
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning">
+                                                <i class="bi bi-clock me-1"></i>
+                                                Pending
+                                            </span>
+                                        }
+                                    </h4>
 
                                     @if (!string.IsNullOrEmpty(position.Description))
                                     {
                                         <p class="text-muted">@position.Description</p>
+                                    }
+
+                                    @if (position.MaxSelectableOptions > 1)
+                                    {
+                                        <div class="alert alert-info">
+                                            <small>
+                                                <i class="bi bi-info-circle me-1"></i>
+                                                You can select up to <strong>@position.MaxSelectableOptions</strong> candidates for this position.
+                                                @if (GetSelectedCount(position.Id) > 0)
+                                                {
+                                                    <span class="ms-2">
+                                                        (@GetSelectedCount(position.Id) of @position.MaxSelectableOptions selected)
+                                                    </span>
+                                                }
+                                            </small>
+                                        </div>
                                     }
 
                                     @if (position.Candidates?.Any() == true)
@@ -95,6 +175,7 @@
                                                                            value="@candidate.Id"
                                                                            checked="@IsSelected(position.Id, candidate.Id)"
                                                                            @onchange="@((e) => ToggleCandidate(position.Id, candidate.Id, (bool)e.Value))"
+                                                                           disabled="@(!IsSelected(position.Id, candidate.Id) && GetSelectedCount(position.Id) >= position.MaxSelectableOptions)"
                                                                            class="form-check-input me-3" />
                                                                 }
 
@@ -181,7 +262,7 @@
                         <hr />
                         <div class="d-grid gap-2">
                             <button class="btn btn-success btn-lg"
-                                    @onclick="SubmitVotes"
+                                    @onclick="ShowConfirmation"
                                     disabled="@(!CanSubmitVotes() || _submitting)">
                                 @if (_submitting)
                                 {
@@ -209,11 +290,21 @@
     private string _errorMessage;
     private bool _loading = true;
     private bool _hasAlreadyVoted;
+    private bool _showConfirmation = false;
+    private bool _isConnected = true;
+    private bool _canRetry = false;
+    private bool _retrying = false;
+    private Func<Task>? _lastFailedOperation;
 
     protected override async Task OnInitializedAsync()
     {
+        // Subscribe to connectivity changes
+        ConnectivityService.ConnectivityChanged += OnConnectivityChanged;
+        
         try
         {
+            _isConnected = await ConnectivityService.IsConnectedAsync();
+            
             _voter = await AuthService.GetAuthenticatedVoterAsync();
             if (_voter == null)
             {
@@ -221,17 +312,38 @@
                 return;
             }
 
-            await LoadElectionData();
+            await LoadElectionDataWithRetry();
         }
         catch (Exception ex)
         {
-            _errorMessage = "An error occurred while loading the election data.";
-            Console.WriteLine($"Error in OnInitializedAsync: {ex.Message}");
+            HandleError("An error occurred while loading the election data.", ex, () => LoadElectionDataWithRetry());
         }
         finally
         {
             _loading = false;
         }
+    }
+
+    private async Task LoadElectionDataWithRetry()
+    {
+        await RetryService.ExecuteWithRetryAsync(async () =>
+        {
+            await LoadElectionData();
+        });
+    }
+
+    private void OnConnectivityChanged(object? sender, bool isConnected)
+    {
+        InvokeAsync(() =>
+        {
+            _isConnected = isConnected;
+            if (!isConnected)
+            {
+                _errorMessage = "";
+                _canRetry = false;
+            }
+            StateHasChanged();
+        });
     }
 
     private async Task LoadElectionData()
@@ -318,46 +430,59 @@
 
         _submitting = true;
         _errorMessage = string.Empty;
+        _canRetry = false;
 
         try
         {
-            // Validate election is still active
-            var currentElection = await ElectionService.GetElectionByIdAsync(ElectionId);
-            if (currentElection == null || !currentElection.IsActive || 
-                currentElection.StartDate > DateTime.UtcNow || 
-                currentElection.EndDate < DateTime.UtcNow)
+            await RetryService.ExecuteWithRetryAsync(async () =>
             {
-                _errorMessage = "This election is no longer active.";
-                return;
-            }
+                // Check connectivity first
+                if (!await ConnectivityService.IsConnectedAsync())
+                {
+                    throw new InvalidOperationException("No internet connection available.");
+                }
 
-            // Validate voter hasn't voted in the meantime
-            if (await VotingService.HasVotedInElectionAsync(_voter.Id, ElectionId))
-            {
-                _errorMessage = "You have already voted in this election.";
-                return;
-            }
+                // Validate election is still active
+                var currentElection = await ElectionService.GetElectionByIdAsync(ElectionId);
+                if (currentElection == null || !currentElection.IsActive || 
+                    currentElection.StartDate > DateTime.UtcNow || 
+                    currentElection.EndDate < DateTime.UtcNow)
+                {
+                    throw new InvalidOperationException("This election is no longer active.");
+                }
 
-            var votes = _selectedCandidates
-                .Where(s => s.Value.Any())
-                .ToDictionary(s => s.Key, s => s.Value.First());
+                // Validate voter hasn't voted in the meantime
+                if (await VotingService.HasVotedInElectionAsync(_voter.Id, ElectionId))
+                {
+                    throw new InvalidOperationException("You have already voted in this election.");
+                }
 
-            var success = await VotingService.SubmitVotesAsync(_voter.Id, votes, ElectionId);
+                var votes = _selectedCandidates
+                    .Where(s => s.Value.Any())
+                    .ToDictionary(s => s.Key, s => s.Value.First());
 
-            if (success)
-            {
-                await JSRuntime.InvokeVoidAsync("alert", "Your votes have been submitted successfully!");
-                NavigationManager.NavigateTo("/");
-            }
-            else
-            {
-                _errorMessage = "Failed to submit votes. Please try again.";
-            }
+                var success = await VotingService.SubmitVotesAsync(_voter.Id, votes, ElectionId);
+
+                if (!success)
+                {
+                    throw new InvalidOperationException("Failed to submit votes to the server.");
+                }
+            });
+
+            // If we get here, submission was successful
+            await JSRuntime.InvokeVoidAsync("alert", "Your votes have been submitted successfully!");
+            NavigationManager.NavigateTo("/");
+        }
+        catch (InvalidOperationException ex)
+        {
+            // These are business logic errors that shouldn't be retried
+            _errorMessage = ex.Message;
+            _canRetry = false;
         }
         catch (Exception ex)
         {
-            _errorMessage = "An error occurred while submitting your votes.";
-            Console.WriteLine($"Error in SubmitVotes: {ex.Message}");
+            // These are technical errors that can be retried
+            HandleError("Failed to submit your votes. This may be due to a temporary network issue.", ex, SubmitVotes);
         }
         finally
         {
@@ -369,6 +494,214 @@
     {
         NavigationManager.NavigateTo("/");
     }
+
+    private void ShowConfirmation()
+    {
+        // Perform client-side validation before showing confirmation
+        if (ValidateSelections(out var validationErrors))
+        {
+            _showConfirmation = true;
+            _errorMessage = string.Empty; // Clear any previous errors
+        }
+        else
+        {
+            _errorMessage = string.Join(" ", validationErrors);
+            _canRetry = false;
+        }
+    }
+
+    private void HideConfirmation()
+    {
+        _showConfirmation = false;
+    }
+
+    private async Task ConfirmSubmitVotes()
+    {
+        _showConfirmation = false;
+        await SubmitVotes();
+    }
+
+    private int GetCompletedPositions()
+    {
+        if (_election?.Positions == null) return 0;
+        return _election.Positions.Count(p => IsPositionCompleted(p.Id));
+    }
+
+    private int GetTotalPositions()
+    {
+        return _election?.Positions?.Count ?? 0;
+    }
+
+    private double GetProgressPercentage()
+    {
+        var total = GetTotalPositions();
+        if (total == 0) return 0;
+        return (GetCompletedPositions() / (double)total) * 100;
+    }
+
+    private bool IsPositionCompleted(int positionId)
+    {
+        return _selectedCandidates.ContainsKey(positionId) && _selectedCandidates[positionId].Any();
+    }
+
+    private int GetSelectedCount(int positionId)
+    {
+        return _selectedCandidates.ContainsKey(positionId) ? _selectedCandidates[positionId].Count : 0;
+    }
+
+    private bool ValidateSelections(out List<string> validationErrors)
+    {
+        validationErrors = new List<string>();
+
+        if (_election?.Positions == null)
+        {
+            validationErrors.Add("No positions found in this election.");
+            return false;
+        }
+
+        foreach (var position in _election.Positions)
+        {
+            var selectedCount = GetSelectedCount(position.Id);
+            
+            if (selectedCount == 0)
+            {
+                validationErrors.Add($"Please make a selection for {position.Title}.");
+            }
+            else if (selectedCount > position.MaxSelectableOptions)
+            {
+                validationErrors.Add($"Too many selections for {position.Title}. Maximum allowed: {position.MaxSelectableOptions}.");
+            }
+        }
+
+        return !validationErrors.Any();
+    }
+
+    private void HandleError(string userMessage, Exception ex, Func<Task>? retryOperation = null)
+    {
+        _errorMessage = userMessage;
+        _canRetry = retryOperation != null;
+        _lastFailedOperation = retryOperation;
+        
+        Console.WriteLine($"Error: {ex.Message}");
+        if (ex.InnerException != null)
+        {
+            Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
+        }
+    }
+
+    private async Task RetryLastOperation()
+    {
+        if (_lastFailedOperation == null) return;
+
+        _retrying = true;
+        _errorMessage = string.Empty;
+        
+        try
+        {
+            await _lastFailedOperation();
+            _canRetry = false;
+            _lastFailedOperation = null;
+        }
+        catch (Exception ex)
+        {
+            HandleError("Retry failed. Please check your connection and try again.", ex, _lastFailedOperation);
+        }
+        finally
+        {
+            _retrying = false;
+        }
+    }
+
+    private async Task CheckConnectivity()
+    {
+        _isConnected = await ConnectivityService.IsConnectedAsync();
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        ConnectivityService.ConnectivityChanged -= OnConnectivityChanged;
+    }
+}
+
+@if (_showConfirmation)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Confirm Your Votes
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <strong>Important:</strong> Once you submit your votes, you cannot change them. Please review your selections carefully.
+                    </div>
+                    
+                    <h6 class="mb-3">Your Voting Summary:</h6>
+                    <div class="card">
+                        <div class="card-body">
+                            <p><strong>Voter:</strong> @_voter?.Student?.FullName</p>
+                            <p><strong>Class:</strong> @_voter?.Student?.Class</p>
+                            <p><strong>Election:</strong> @_election?.Title</p>
+                            
+                            <hr />
+                            
+                            <h6>Selected Candidates:</h6>
+                            @foreach (var selection in _selectedCandidates.Where(s => s.Value.Any()))
+                            {
+                                var position = _election?.Positions?.FirstOrDefault(p => p.Id == selection.Key);
+                                if (position != null)
+                                {
+                                    <div class="mb-3">
+                                        <strong class="text-primary">@position.Title:</strong>
+                                        <ul class="list-unstyled ms-3">
+                                            @foreach (var candidateId in selection.Value)
+                                            {
+                                                var candidate = position.Candidates?.FirstOrDefault(c => c.Id == candidateId);
+                                                if (candidate != null)
+                                                {
+                                                    <li class="text-success">
+                                                        <i class="bi bi-check-circle me-1"></i>
+                                                        @candidate.FullName
+                                                        @if (!string.IsNullOrEmpty(candidate.Class))
+                                                        {
+                                                            <small class="text-muted">(@candidate.Class)</small>
+                                                        }
+                                                    </li>
+                                                }
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        By clicking "Yes, Submit My Votes", you confirm that these are your final choices for this election.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideConfirmation">
+                        <i class="bi bi-arrow-left me-1"></i>
+                        Go Back to Review
+                    </button>
+                    <button type="button" class="btn btn-success" @onclick="ConfirmSubmitVotes" disabled="@_submitting">
+                        @if (_submitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        }
+                        <i class="bi bi-check-circle me-1"></i>
+                        Yes, Submit My Votes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 <style>

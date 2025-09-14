@@ -8,6 +8,7 @@
 @inject IVotingService VotingService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject IHttpContextAccessor HttpContextAccessor
 
 @if (_redirecting)
 {
@@ -33,28 +34,21 @@ else
                     <h1 class="h2 text-primary-emphasis mb-2">Welcome to @SchoolName</h1>
                     <h2 class="h5 mb-4">Student Electoral Commission</h2>
 
-                    @if (_loading)
+                    @if (_loading || _redirecting)
                     {
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
                         </div>
-                    }
-                    else if (!string.IsNullOrEmpty(_errorMessage))
-                    {
-                        <div class="alert alert-danger text-center py-2">@_errorMessage</div>
-                    }
-                    else if (_voter != null)
-                    {
-                        NavigationManager.NavigateTo("/voter-dashboard");
-                        return;
-                    }
-                    else if (_isAdmin)
-                    {
-                        NavigationManager.NavigateTo("/admin-dashboard");
-                        return;
+                        <p class="mt-2">@(_redirecting ? "Redirecting to dashboard..." : "Setting up your voting session...")</p>
                     }
                     else
                     {
+                        @if (!string.IsNullOrEmpty(_errorMessage))
+                        {
+                            <div class="alert alert-danger text-center py-2 mb-3">@_errorMessage</div>
+                        }
                         <div class="card">
                             <div class="card-header bg-primary text-white py-2">
                                 <h3 class="mb-0 h5">Login</h3>
@@ -151,12 +145,14 @@ else
             if (_voter != null)
             {
                 _redirecting = true;
+                StateHasChanged(); // Update UI to show redirect message
                 NavigationManager.NavigateTo("/voter-dashboard");
                 return; // Exit early if voter is authenticated
             }
             else if (_isAdmin)
             {
                 _redirecting = true;
+                StateHasChanged(); // Update UI to show redirect message
                 NavigationManager.NavigateTo("/admin-dashboard");
                 return; // Exit early if admin is authenticated
             }
@@ -201,6 +197,7 @@ else
         else
         {
             _errorMessage = "Invalid voter code.";
+            _voterCode = string.Empty;
         }
         _loading = false;
     }
@@ -209,8 +206,11 @@ else
     {
         _loading = true;
         _errorMessage = string.Empty;
-        var success = await AuthService.AuthenticateAdminAsync(_adminUsername, _adminPassword);
-        if (success)
+        
+        var ipAddress = HttpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown";
+        var admin = await AuthService.AuthenticateAdminAsync(_adminUsername, _adminPassword, ipAddress);
+        
+        if (admin != null)
         {
             _redirecting = true;
             await LoadPageData();
@@ -220,7 +220,9 @@ else
         }
         else
         {
-            _errorMessage = "Invalid admin credentials.";
+            _errorMessage = "Invalid admin credentials or account is locked.";
+            _adminUsername = string.Empty;
+            _adminPassword = string.Empty;
         }
         _loading = false;
     }

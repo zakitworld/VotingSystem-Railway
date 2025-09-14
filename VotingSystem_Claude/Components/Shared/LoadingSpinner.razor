@@ -1,0 +1,57 @@
+@if (Show)
+{
+    <div class="loading-container @ContainerClass">
+        @if (ShowBackground)
+        {
+            <div class="loading-overlay"></div>
+        }
+        
+        <div class="loading-content text-center">
+            @if (LoadingType == "pulse")
+            {
+                <div class="loading-pulse">
+                    <div class="pulse-dot"></div>
+                    <div class="pulse-dot"></div>
+                    <div class="pulse-dot"></div>
+                </div>
+            }
+            else if (LoadingType == "skeleton")
+            {
+                <div class="skeleton-loader">
+                    <div class="skeleton-line skeleton-title"></div>
+                    <div class="skeleton-line skeleton-text"></div>
+                    <div class="skeleton-line skeleton-text short"></div>
+                </div>
+            }
+            else
+            {
+                <div class="spinner-border @SpinnerClass" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            }
+            
+            @if (!string.IsNullOrEmpty(Message))
+            {
+                <div class="loading-message mt-3">
+                    <p class="mb-0">@Message</p>
+                    @if (!string.IsNullOrEmpty(SubMessage))
+                    {
+                        <small class="text-muted">@SubMessage</small>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+
+
+@code {
+    [Parameter] public bool Show { get; set; } = true;
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public string SubMessage { get; set; } = string.Empty;
+    [Parameter] public string LoadingType { get; set; } = "spinner"; // spinner, pulse, skeleton
+    [Parameter] public string SpinnerClass { get; set; } = "text-primary";
+    [Parameter] public string ContainerClass { get; set; } = string.Empty;
+    [Parameter] public bool ShowBackground { get; set; } = false;
+}

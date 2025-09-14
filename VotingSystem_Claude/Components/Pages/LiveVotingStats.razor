@@ -1,0 +1,292 @@
+@page "/admin/live-stats/{ElectionId:int}"
+@using VotingSystem_Claude.Models
+@using VotingSystem_Claude.Services.Interfaces
+@inject IRealTimeStatsService StatsService
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+@implements IAsyncDisposable
+
+<div class="container-fluid mt-4">
+    @if (_loading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading statistics...</span>
+            </div>
+        </div>
+    }
+    else if (_statistics != null)
+    {
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2>Live Voting Statistics</h2>
+                    <div class="badge bg-success">
+                        <i class="bi bi-broadcast me-1"></i>
+                        Live Updates
+                    </div>
+                </div>
+                <h4 class="text-muted">@_statistics.ElectionTitle</h4>
+                <small class="text-muted">Last updated: @_statistics.LastUpdated.ToString("HH:mm:ss")</small>
+            </div>
+        </div>
+
+        <!-- Overall Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h3>@_statistics.VotesCount</h3>
+                        <p class="mb-0">Votes Cast</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h3>@_statistics.TotalVoters</h3>
+                        <p class="mb-0">Registered Voters</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h3>@_statistics.TurnoutPercentage.ToString("F1")%</h3>
+                        <p class="mb-0">Turnout Rate</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body text-center">
+                        <h3>@(_statistics.TotalVoters - _statistics.VotesCount)</h3>
+                        <p class="mb-0">Remaining Voters</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Turnout Progress Bar -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Voting Progress</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress" style="height: 30px;">
+                            <div class="progress-bar @GetProgressBarClass(_statistics.TurnoutPercentage)" 
+                                 role="progressbar" 
+                                 style="width: @(_statistics.TurnoutPercentage.ToString("F1"))%" 
+                                 aria-valuenow="@_statistics.TurnoutPercentage.ToString("F1")" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                @_statistics.TurnoutPercentage.ToString("F1")%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Position-wise Results -->
+        <div class="row">
+            @foreach (var position in _statistics.PositionStats)
+            {
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>@position.PositionTitle</h5>
+                            <small class="text-muted">@position.TotalVotes total votes</small>
+                        </div>
+                        <div class="card-body">
+                            @if (position.CandidateStats.Any())
+                            {
+                                @foreach (var candidate in position.CandidateStats)
+                                {
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="fw-bold">@candidate.CandidateName</span>
+                                            <span class="badge @GetCandidateBadgeClass(candidate, position)">
+                                                @candidate.VoteCount votes (@candidate.VotePercentage.ToString("F1")%)
+                                            </span>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(candidate.CandidateClass))
+                                        {
+                                            <small class="text-muted">@candidate.CandidateClass</small>
+                                        }
+                                        <div class="progress mt-2" style="height: 8px;">
+                                            <div class="progress-bar @GetCandidateProgressClass(candidate, position)" 
+                                                 role="progressbar" 
+                                                 style="width: @(candidate.VotePercentage.ToString("F1"))%" 
+                                                 aria-valuenow="@candidate.VotePercentage.ToString("F1")" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <p class="text-muted">No votes cast yet for this position.</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (_hourlyTrends.Any())
+        {
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Voting Trends (24-Hour)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                @foreach (var trend in _hourlyTrends.Where(t => t.Value > 0))
+                                {
+                                    <div class="col-2 col-md-1 mb-2">
+                                        <div class="text-center">
+                                            <div class="bg-primary text-white p-2 rounded">
+                                                <small>@trend.Key</small>
+                                                <div class="fw-bold">@trend.Value</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="alert alert-danger">
+            Failed to load voting statistics. Please try again.
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int ElectionId { get; set; }
+
+    private VotingStatistics? _statistics;
+    private Dictionary<string, int> _hourlyTrends = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Check admin authentication
+            if (!await AuthService.IsAdminAsync())
+            {
+                NavigationManager.NavigateTo("/");
+                return;
+            }
+
+            // Subscribe to live updates
+            StatsService.StatisticsUpdated += OnStatisticsUpdated;
+
+            // Load initial data
+            await LoadStatisticsAsync();
+
+            // Start monitoring
+            await StatsService.StartMonitoringAsync(ElectionId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnInitializedAsync: {ex.Message}");
+            _loading = false;
+        }
+    }
+
+    private async Task LoadStatisticsAsync()
+    {
+        try
+        {
+            _statistics = await StatsService.GetElectionStatisticsAsync(ElectionId);
+            _hourlyTrends = await StatsService.GetHourlyVotingTrendsAsync(ElectionId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading statistics: {ex.Message}");
+            _statistics = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async void OnStatisticsUpdated(object? sender, VotingStatistics stats)
+    {
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                _statistics = stats;
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnStatisticsUpdated: {ex.Message}");
+        }
+    }
+
+    private static string GetProgressBarClass(double percentage)
+    {
+        return percentage switch
+        {
+            (< 25) => "bg-danger",
+            (< 50) => "bg-warning",
+            (< 75) => "bg-info",
+            _ => "bg-success"
+        };
+    }
+
+    private static string GetCandidateBadgeClass(CandidateStatistics candidate, PositionStatistics position)
+    {
+        if (position.CandidateStats == null || !position.CandidateStats.Any())
+            return "bg-secondary";
+            
+        var isLeading = position.CandidateStats
+            .OrderByDescending(c => c.VoteCount)
+            .FirstOrDefault() == candidate;
+        return isLeading ? "bg-success" : "bg-secondary";
+    }
+
+    private static string GetCandidateProgressClass(CandidateStatistics candidate, PositionStatistics position)
+    {
+        if (position.CandidateStats == null || !position.CandidateStats.Any())
+            return "bg-info";
+            
+        var isLeading = position.CandidateStats
+            .OrderByDescending(c => c.VoteCount)
+            .FirstOrDefault() == candidate;
+        return isLeading ? "bg-success" : "bg-info";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            StatsService.StatisticsUpdated -= OnStatisticsUpdated;
+            await StatsService.StopMonitoringAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in DisposeAsync: {ex.Message}");
+        }
+    }
+}
+}

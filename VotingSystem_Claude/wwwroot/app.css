@@ -49,3 +49,177 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* Mobile Responsiveness Improvements */
+@media (max-width: 768px) {
+    .container {
+        padding: 0.5rem;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        font-size: 1rem;
+        padding: 0.75rem 1rem;
+        min-height: 44px; /* Touch-friendly size */
+    }
+    
+    .btn-lg {
+        font-size: 1.125rem;
+        padding: 1rem 1.5rem;
+        min-height: 48px;
+    }
+    
+    .form-control, .form-select {
+        font-size: 1rem;
+        padding: 0.75rem;
+        min-height: 44px;
+    }
+    
+    .form-check-input {
+        width: 1.5em;
+        height: 1.5em;
+        margin-top: 0;
+    }
+    
+    .candidate-card {
+        margin-bottom: 1rem;
+    }
+    
+    .candidate-card .card-body {
+        padding: 0.75rem;
+    }
+    
+    .position-section {
+        margin-bottom: 2rem;
+        padding-left: 10px;
+        border-left-width: 3px;
+    }
+    
+    .position-section h4 {
+        font-size: 1.25rem;
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.5rem;
+    }
+    
+    .sticky-top {
+        position: relative !important;
+        top: auto !important;
+    }
+    
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    
+    .modal-body {
+        padding: 1rem;
+    }
+    
+    .alert {
+        font-size: 0.9rem;
+        padding: 0.75rem;
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.35em 0.5em;
+    }
+}
+
+@media (max-width: 576px) {
+    .row {
+        margin: 0;
+    }
+    
+    .col-md-8,
+    .col-md-4 {
+        padding: 0 0.5rem;
+    }
+    
+    .candidate-card .d-flex {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    
+    .candidate-card .form-check-input {
+        margin-bottom: 0.5rem;
+    }
+    
+    .candidate-image {
+        width: 40px !important;
+        height: 40px !important;
+    }
+    
+    .progress-container small {
+        font-size: 0.8rem;
+    }
+    
+    .card-header h3 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+    .candidate-card {
+        border-width: 2px;
+        transition: none;
+    }
+    
+    .candidate-card:hover {
+        box-shadow: none;
+    }
+    
+    .candidate-card.border-primary {
+        box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+    }
+    
+    .btn {
+        border-width: 2px;
+    }
+    
+    .form-check-input:focus {
+        border-width: 2px;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+}
+
+/* Loading and animation improvements */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+.progress {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+.candidate-card {
+    transition: all 0.2s ease;
+}
+
+.candidate-card:active {
+    transform: scale(0.98);
+}
+
+/* Better text readability */
+.text-muted {
+    color: #6c757d !important;
+}
+
+@media (max-width: 576px) {
+    .text-muted {
+        color: #495057 !important;
+    }
+}

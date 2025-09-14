@@ -7,13 +7,19 @@ namespace VotingSystem_Claude.Services
     public class AuthService : IAuthService
     {
         private readonly IVoterService _voterService;
+        private readonly IAdminService _adminService;
+        private readonly IAuditService _auditService;
         private readonly ProtectedSessionStorage _sessionStorage;
         private const string SessionKey = "VoterId";
-        private const string AdminSessionKey = "IsAdmin";
+        private const string AdminSessionKey = "AdminId";
+        private const string SessionTimeKey = "SessionTime";
+        private const int SessionTimeoutMinutes = 30;
 
-        public AuthService(IVoterService voterService, ProtectedSessionStorage sessionStorage)
+        public AuthService(IVoterService voterService, IAdminService adminService, IAuditService auditService, ProtectedSessionStorage sessionStorage)
         {
             _voterService = voterService;
+            _adminService = adminService;
+            _auditService = auditService;
             _sessionStorage = sessionStorage;
         }
 
@@ -38,16 +44,15 @@ namespace VotingSystem_Claude.Services
             return voter;
         }
 
-        public async Task<bool> AuthenticateAdminAsync(string username, string password)
+        public async Task<Admin?> AuthenticateAdminAsync(string username, string password, string ipAddress)
         {
-            // For a real application, you would check against a database
-            // This is a simplified implementation for demo purposes
-            if (username == "admin" && password == "School@2025")
+            var admin = await _adminService.AuthenticateAsync(username, password, ipAddress);
+            if (admin != null)
             {
-                await _sessionStorage.SetAsync(AdminSessionKey, true);
-                return true;
+                await _sessionStorage.SetAsync(AdminSessionKey, admin.Id);
+                await _sessionStorage.SetAsync(SessionTimeKey, DateTime.UtcNow);
             }
-            return false;
+            return admin;
         }
 
         public async Task<Voter> GetAuthenticatedVoterAsync()
@@ -74,17 +79,52 @@ namespace VotingSystem_Claude.Services
             await _sessionStorage.DeleteAsync(AdminSessionKey);
         }
 
-        public async Task<bool> IsAdminAsync()
+        public async Task<Admin?> GetAuthenticatedAdminAsync()
         {
             try
             {
-                var result = await _sessionStorage.GetAsync<bool>(AdminSessionKey);
-                return result.Success && result.Value;
+                if (await IsSessionExpiredAsync())
+                    return null;
+
+                var result = await _sessionStorage.GetAsync<int>(AdminSessionKey);
+                if (result.Success)
+                {
+                    return await _adminService.GetAdminByIdAsync(result.Value);
+                }
             }
             catch
             {
-                return false;
+                // Session may be invalid or expired
             }
+
+            return null;
+        }
+
+        public async Task<bool> IsAdminAsync()
+        {
+            var admin = await GetAuthenticatedAdminAsync();
+            return admin != null;
+        }
+
+        public async Task<bool> IsSessionExpiredAsync()
+        {
+            try
+            {
+                var sessionTimeResult = await _sessionStorage.GetAsync<DateTime>(SessionTimeKey);
+                if (sessionTimeResult.Success)
+                {
+                    var sessionTime = sessionTimeResult.Value;
+                    return DateTime.UtcNow.Subtract(sessionTime).TotalMinutes > SessionTimeoutMinutes;
+                }
+            }
+            catch { }
+
+            return true; // Assume expired if unable to check
+        }
+
+        public async Task RefreshSessionAsync()
+        {
+            await _sessionStorage.SetAsync(SessionTimeKey, DateTime.UtcNow);
         }
     }
 }

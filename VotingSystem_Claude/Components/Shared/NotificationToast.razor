@@ -1,0 +1,97 @@
+@if (Show)
+{
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 11;">
+        <div class="toast show @GetToastClass()" role="alert">
+            <div class="toast-header">
+                <i class="@GetIconClass() me-2"></i>
+                <strong class="me-auto">@Title</strong>
+                <small class="text-muted">@TimeAgo</small>
+                <button type="button" class="btn-close" @onclick="Hide"></button>
+            </div>
+            @if (!string.IsNullOrEmpty(Message))
+            {
+                <div class="toast-body">
+                    @Message
+                    @if (Actions.Any())
+                    {
+                        <div class="mt-2 pt-2 border-top">
+                            @foreach (var action in Actions)
+                            {
+                                <button type="button" class="btn btn-sm @action.ButtonClass me-2" @onclick="action.OnClick">
+                                    @action.Text
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public string Type { get; set; } = "success"; // success, error, warning, info
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public int AutoHideDelay { get; set; } = 5000; // milliseconds
+    [Parameter] public List<ToastAction> Actions { get; set; } = new();
+    [Parameter] public EventCallback OnHide { get; set; }
+
+    private string TimeAgo => "now";
+    private Timer? _hideTimer;
+
+    protected override void OnParametersSet()
+    {
+        if (Show && AutoHideDelay > 0)
+        {
+            _hideTimer?.Dispose();
+            _hideTimer = new Timer(async _ => await InvokeAsync(Hide), null, AutoHideDelay, Timeout.Infinite);
+        }
+    }
+
+    private async Task Hide()
+    {
+        Show = false;
+        _hideTimer?.Dispose();
+        await OnHide.InvokeAsync();
+        StateHasChanged();
+    }
+
+    private string GetToastClass()
+    {
+        return Type.ToLower() switch
+        {
+            "error" => "toast-error",
+            "warning" => "toast-warning",
+            "info" => "toast-info",
+            _ => "toast-success"
+        };
+    }
+
+    private string GetIconClass()
+    {
+        return Type.ToLower() switch
+        {
+            "success" => "bi bi-check-circle-fill text-success",
+            "error" => "bi bi-exclamation-circle-fill text-danger",
+            "warning" => "bi bi-exclamation-triangle-fill text-warning",
+            "info" => "bi bi-info-circle-fill text-info",
+            _ => "bi bi-check-circle-fill text-success"
+        };
+    }
+
+    public void Dispose()
+    {
+        _hideTimer?.Dispose();
+    }
+
+    public class ToastAction
+    {
+        public string Text { get; set; } = string.Empty;
+        public string ButtonClass { get; set; } = "btn-primary";
+        public Func<Task> OnClick { get; set; } = () => Task.CompletedTask;
+    }
+}

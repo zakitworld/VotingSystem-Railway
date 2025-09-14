@@ -21,6 +21,7 @@ namespace VotingSystem_Claude.Data
         public DbSet<Student> Students { get; set; }
         public DbSet<Voter> Voters { get; set; }
         public DbSet<VoterCode> VoterCodes { get; set; }
+        public DbSet<Admin> Admins { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)

@@ -47,9 +47,23 @@ namespace VotingSystem_Claude.Services
 
         public async Task<bool> UpdateElectionAsync(Election election)
         {
-            _context.Entry(election).State = EntityState.Modified;
             try
             {
+                // Check if the entity is already being tracked
+                var existingEntity = _context.ChangeTracker.Entries<Election>()
+                    .FirstOrDefault(e => e.Entity.Id == election.Id);
+
+                if (existingEntity != null)
+                {
+                    // If already tracked, update the existing entity's properties
+                    existingEntity.CurrentValues.SetValues(election);
+                }
+                else
+                {
+                    // If not tracked, attach and set as modified
+                    _context.Entry(election).State = EntityState.Modified;
+                }
+
                 await _context.SaveChangesAsync();
                 return true;
             }

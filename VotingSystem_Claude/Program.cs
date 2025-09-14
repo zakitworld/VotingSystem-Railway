@@ -105,8 +105,10 @@ builder.Services.AddDistributedMemoryCache();
 
 // Register Authentication & Authorization Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IVoterService, VoterService>();
 builder.Services.AddScoped<IVoterCodeService, VoterCodeService>();
+builder.Services.AddHttpContextAccessor();
 
 // Register Election Management Services
 builder.Services.AddScoped<IElectionService, ElectionService>();
@@ -120,6 +122,12 @@ builder.Services.AddScoped<IStudentService, StudentService>();
 
 // Register Analytics Service
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
+
+// Register Utility Services
+builder.Services.AddScoped<IRetryService, RetryService>();
+builder.Services.AddSingleton<IConnectivityService, ConnectivityService>();
+builder.Services.AddScoped<IRealTimeStatsService, RealTimeStatsService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 
 // Add logging with structured logging
 builder.Services.AddLogging(logging =>
@@ -138,7 +146,75 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    context.Database.EnsureCreated();
+    
+    // Use migrations instead of EnsureCreated to ensure all tables are created
+    if (context.Database.GetPendingMigrations().Any())
+    {
+        context.Database.Migrate();
+    }
+    
+    // Create default admin if none exists, or reset existing admin for development  
+    var adminService = scope.ServiceProvider.GetRequiredService<IAdminService>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    
+    if (app.Environment.IsDevelopment())
+    {
+        // In development, always ensure we have a working admin account
+        var existingAdmin = await adminService.GetAdminByUsernameAsync("admin");
+        var testPassword = "Admin123!"; // Simple password for development
+        
+        if (existingAdmin != null)
+        {
+            // Reset existing admin - unlock and reset password
+            var success = await adminService.ResetPasswordAsync("admin", testPassword);
+            if (success)
+            {
+                logger.LogWarning("DEVELOPMENT: Admin password reset - Username: admin, Password: {Password}", testPassword);
+            }
+            else
+            {
+                logger.LogError("Could not reset admin password");
+            }
+        }
+        else
+        {
+            // Create new admin
+            var admin = new Admin
+            {
+                Username = "admin",
+                Email = "admin@school.com",
+                FullName = "System Administrator",
+                IsActive = true
+            };
+            
+            var success = await adminService.CreateAdminAsync(admin, testPassword);
+            if (success)
+            {
+                logger.LogWarning("DEVELOPMENT: Admin created - Username: admin, Password: {Password}", testPassword);
+            }
+        }
+        logger.LogWarning("CHANGE THESE CREDENTIALS IMMEDIATELY FOR PRODUCTION!");
+    }
+    else if (!context.Admins.Any())
+    {
+        // Production: only create if no admin exists
+        var randomPassword = GenerateSecurePassword();
+        
+        var admin = new Admin
+        {
+            Username = "admin",
+            Email = "admin@school.com",
+            FullName = "System Administrator",
+            IsActive = true
+        };
+        
+        var success = await adminService.CreateAdminAsync(admin, randomPassword);
+        if (success)
+        {
+            logger.LogWarning("Default admin created - Username: admin, Password: {Password}", randomPassword);
+            logger.LogWarning("CHANGE THESE CREDENTIALS IMMEDIATELY AFTER FIRST LOGIN!");
+        }
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -235,5 +311,15 @@ app.Use(async (context, next) =>
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Helper method to generate secure random passwords
+static string GenerateSecurePassword()
+{
+    // Generate a cryptographically secure random password
+    const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+    var random = new Random();
+    return new string(Enumerable.Repeat(chars, 16)
+        .Select(s => s[random.Next(s.Length)]).ToArray());
+}
 
 app.Run();

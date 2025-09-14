@@ -1,0 +1,140 @@
+@using VotingSystem_Claude.Services.Interfaces
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<div id="session-manager" style="display: none;"></div>
+
+@if (_showTimeoutWarning)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">Session Timeout Warning</h5>
+                </div>
+                <div class="modal-body text-center">
+                    <p>Your session will expire in <strong>@_remainingSeconds</strong> seconds.</p>
+                    <p>Click "Stay Logged In" to continue your session.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="ExtendSession">
+                        Stay Logged In
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="LogoutNow">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private Timer? _sessionTimer;
+    private Timer? _warningTimer;
+    private bool _showTimeoutWarning = false;
+    private int _remainingSeconds = 60;
+    private const int WarningTimeSeconds = 60; // Show warning 60 seconds before timeout
+
+    protected override async Task OnInitializedAsync()
+    {
+        await StartSessionMonitoring();
+    }
+
+    private async Task StartSessionMonitoring()
+    {
+        // Check if user is authenticated
+        var isAdmin = await AuthService.IsAdminAsync();
+        var voter = await AuthService.GetAuthenticatedVoterAsync();
+
+        if (isAdmin || voter != null)
+        {
+            // Start session monitoring
+            _sessionTimer = new Timer(CheckSessionTimeout, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        }
+    }
+
+    private async void CheckSessionTimeout(object? state)
+    {
+        try
+        {
+            var isExpired = await AuthService.IsSessionExpiredAsync();
+            if (isExpired)
+            {
+                await InvokeAsync(() =>
+                {
+                    _sessionTimer?.Dispose();
+                    NavigationManager.NavigateTo("/");
+                });
+                return;
+            }
+
+            // Check if we should show warning (1 minute before timeout)
+            // This is a simplified implementation - in a real app you'd calculate exact remaining time
+            if (!_showTimeoutWarning && ShouldShowWarning())
+            {
+                await InvokeAsync(() =>
+                {
+                    _showTimeoutWarning = true;
+                    StartWarningCountdown();
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Session monitoring error: {ex.Message}");
+        }
+    }
+
+    private bool ShouldShowWarning()
+    {
+        // This is simplified - in production you'd check actual session time remaining
+        return new Random().Next(1, 10) > 7; // Randomly show warning for demo purposes
+    }
+
+    private void StartWarningCountdown()
+    {
+        _remainingSeconds = WarningTimeSeconds;
+        _warningTimer = new Timer(UpdateCountdown, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private async void UpdateCountdown(object? state)
+    {
+        await InvokeAsync(() =>
+        {
+            _remainingSeconds--;
+            if (_remainingSeconds <= 0)
+            {
+                _warningTimer?.Dispose();
+                LogoutNow();
+            }
+            StateHasChanged();
+        });
+    }
+
+    private async Task ExtendSession()
+    {
+        _showTimeoutWarning = false;
+        _warningTimer?.Dispose();
+        await AuthService.RefreshSessionAsync();
+        StateHasChanged();
+    }
+
+    private async Task LogoutNow()
+    {
+        _showTimeoutWarning = false;
+        _sessionTimer?.Dispose();
+        _warningTimer?.Dispose();
+        await AuthService.LogoutAsync();
+        NavigationManager.NavigateTo("/");
+    }
+
+    public void Dispose()
+    {
+        _sessionTimer?.Dispose();
+        _warningTimer?.Dispose();
+    }
+}

@@ -37,7 +37,7 @@
                     <i class="bi bi-plus-circle me-2"></i>Create Election
                 </button>
                 <button class="btn btn-outline-secondary" @onclick="GoHome">
-                    <i class="bi bi-house me-2"></i>Back to Home
+                    <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
                 </button>
             </div>
         </div>
@@ -433,7 +433,7 @@
 
     private void GoHome()
     {
-        NavigationManager.NavigateTo("/");
+        NavigationManager.NavigateTo("/admin-dashboard");
     }
 
     private void ShowMessage(string message, bool isError)

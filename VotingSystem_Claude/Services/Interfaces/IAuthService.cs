@@ -5,9 +5,12 @@ namespace VotingSystem_Claude.Services.Interfaces
     public interface IAuthService
     {
         Task<Voter> AuthenticateVoterAsync(string voterCode);
-        Task<bool> AuthenticateAdminAsync(string username, string password);
+        Task<Admin?> AuthenticateAdminAsync(string username, string password, string ipAddress);
         Task<Voter> GetAuthenticatedVoterAsync();
+        Task<Admin?> GetAuthenticatedAdminAsync();
         Task LogoutAsync();
         Task<bool> IsAdminAsync();
+        Task<bool> IsSessionExpiredAsync();
+        Task RefreshSessionAsync();
     }
 } 
