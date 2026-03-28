@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace VotingSystem_Claude.Models
@@ -18,8 +18,8 @@ namespace VotingSystem_Claude.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
-        public virtual Student Student { get; set; }
-        public virtual ICollection<Vote> Votes { get; set; }
-        public virtual VoterCode VoterCode { get; set; }
+        public virtual Student Student { get; set; } = null!;
+        public virtual ICollection<Vote> Votes { get; set; } = [];
+        public virtual VoterCode? VoterCode { get; set; }
     }
 }

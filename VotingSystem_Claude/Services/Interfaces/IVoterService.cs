@@ -5,8 +5,8 @@ namespace VotingSystem_Claude.Services.Interfaces
     public interface IVoterService
     {
         Task<List<Voter>> GetAllVotersAsync();
-        Task<Voter> GetVoterByIdAsync(int id);
-        Task<Voter> GetVoterByCodeAsync(string voterCode);
+        Task<Voter?> GetVoterByIdAsync(int id);
+        Task<Voter?> GetVoterByCodeAsync(string voterCode);
         Task<Voter> CreateVoterAsync(Voter voter);
         Task<bool> UpdateVoterAsync(Voter voter);
         Task<bool> DeleteVoterAsync(int id);
@@ -14,4 +14,4 @@ namespace VotingSystem_Claude.Services.Interfaces
         Task<bool> VotersExistWithStudentIdsAsync(List<string> studentIds);
         Task<bool> RegenerateVoterCodeAsync(int id);
     }
-} 
+}

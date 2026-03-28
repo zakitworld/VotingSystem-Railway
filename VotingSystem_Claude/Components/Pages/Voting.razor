@@ -1,4 +1,5 @@
 ﻿@page "/voting/{ElectionId:int}"
+@using VotingSystem_Claude.Components.Shared
 @using VotingSystem_Claude.Services
 @using VotingSystem_Claude.Services.Interfaces
 @using VotingSystem_Claude.Models
@@ -174,7 +175,7 @@
                                                                     <input type="checkbox"
                                                                            value="@candidate.Id"
                                                                            checked="@IsSelected(position.Id, candidate.Id)"
-                                                                           @onchange="@((e) => ToggleCandidate(position.Id, candidate.Id, (bool)e.Value))"
+                                                                           @onchange="@((e) => ToggleCandidate(position.Id, candidate.Id, e.Value is bool b && b))"
                                                                            disabled="@(!IsSelected(position.Id, candidate.Id) && GetSelectedCount(position.Id) >= position.MaxSelectableOptions)"
                                                                            class="form-check-input me-3" />
                                                                 }
@@ -235,7 +236,7 @@
                         {
                             @foreach (var selection in _selectedCandidates)
                             {
-                                var position = _election.Positions.FirstOrDefault(p => p.Id == selection.Key);
+                                var position = _election?.Positions?.FirstOrDefault(p => p.Id == selection.Key);
                                 if (position != null)
                                 {
                                     <div class="mb-2">
@@ -283,13 +284,13 @@
     [Parameter]
     public int ElectionId { get; set; }
 
-    private Models.Voter _voter;
-    private Election _election;
+    private Models.Voter? _voter;
+    private Election? _election;
     private Dictionary<int, List<int>> _selectedCandidates = new();
     private bool _submitting;
-    private string _errorMessage;
+    private string _errorMessage = "";
     private bool _loading = true;
-    private bool _hasAlreadyVoted;
+    private bool _hasAlreadyVoted = false;
     private bool _showConfirmation = false;
     private bool _isConnected = true;
     private bool _canRetry = false;
@@ -361,7 +362,7 @@
             return;
         }
 
-        if (await VotingService.HasVotedInElectionAsync(_voter.Id, ElectionId))
+        if (await VotingService.HasVotedInElectionAsync(_voter!.Id, ElectionId))
         {
             _errorMessage = "You have already voted in this election.";
             return;
@@ -386,7 +387,7 @@
             _selectedCandidates[positionId] = new List<int>();
         }
 
-        var position = _election.Positions.FirstOrDefault(p => p.Id == positionId);
+        var position = _election?.Positions.FirstOrDefault(p => p.Id == positionId);
         if (position == null) return;
 
         if (isSelected)
@@ -452,7 +453,7 @@
                 }
 
                 // Validate voter hasn't voted in the meantime
-                if (await VotingService.HasVotedInElectionAsync(_voter.Id, ElectionId))
+                if (await VotingService.HasVotedInElectionAsync(_voter!.Id, ElectionId))
                 {
                     throw new InvalidOperationException("You have already voted in this election.");
                 }

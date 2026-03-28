@@ -119,16 +119,15 @@ else
 @code {
     private string SchoolName = "Dabala Senior High Technical School"; // You can make this configurable
     private bool _loading = true;
-    private Models.Voter _voter;
-    private Election _activeElection;
-    private bool _hasVoted;
+    private Models.Voter? _voter;
+    private Election? _activeElection;
     private bool _isAdmin;
 
     // Login fields
-    private string _voterCode;
-    private string _adminUsername;
-    private string _adminPassword;
-    private string _errorMessage;
+    private string _voterCode = "";
+    private string _adminUsername = "";
+    private string _adminPassword = "";
+    private string _errorMessage = "";
     private string _activeTab = "voter";
     private bool _redirecting = false;
 
@@ -176,10 +175,6 @@ else
         // This method will now only be called if the user is not authenticated as a voter or admin
         // Its purpose is to load election data for displaying on the home/login page if necessary
         _activeElection = await ElectionService.GetActiveElectionAsync();
-        if (_activeElection != null)
-        {
-            _hasVoted = false;
-        }
     }
 
     private async Task LoginVoter()

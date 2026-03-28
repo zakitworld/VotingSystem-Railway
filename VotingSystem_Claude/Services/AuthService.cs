@@ -23,7 +23,7 @@ namespace VotingSystem_Claude.Services
             _sessionStorage = sessionStorage;
         }
 
-        public async Task<Voter> AuthenticateVoterAsync(string voterCode)
+        public async Task<Voter?> AuthenticateVoterAsync(string voterCode)
         {
             if (string.IsNullOrWhiteSpace(voterCode))
             {
@@ -55,7 +55,7 @@ namespace VotingSystem_Claude.Services
             return admin;
         }
 
-        public async Task<Voter> GetAuthenticatedVoterAsync()
+        public async Task<Voter?> GetAuthenticatedVoterAsync()
         {
             try
             {

@@ -351,7 +351,7 @@
 
             foreach (var voter in voters)
             {
-                if (string.IsNullOrEmpty(voter.VoterCode.Code))
+                if (voter.VoterCode == null || string.IsNullOrEmpty(voter.VoterCode.Code))
                 {
                     var newCode = await VoterCodeService.GenerateVoterCodeAsync();
                     if (await VoterCodeService.AssignVoterCodeAsync(voter.Id, newCode))
@@ -484,7 +484,7 @@
             foreach (var voter in _voters)
             {
                 csv += $"{voter.Student.StudentId},{voter.Student.FullName},{voter.Student.Class},{voter.Student.House}," +
-                       $"{voter.VoterCode.Code},{(voter.HasVoted ? "Voted" : "Pending")}," +
+                       $"{voter.VoterCode?.Code ?? ""},{(voter.HasVoted ? "Voted" : "Pending")}," +
                        $"{(voter.LastLoginTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never")}\n";
             }
             var bytes = System.Text.Encoding.UTF8.GetBytes(csv);

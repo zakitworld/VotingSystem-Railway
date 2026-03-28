@@ -9,17 +9,17 @@ namespace VotingSystem_Claude.Models
 
         [Required]
         [StringLength(50)]
-        public string Username { get; set; }
+        public string Username { get; set; } = null!;
 
         [Required]
-        public string PasswordHash { get; set; }
+        public string PasswordHash { get; set; } = null!;
 
         [Required]
         [StringLength(100)]
-        public string Email { get; set; }
+        public string Email { get; set; } = null!;
 
         [StringLength(100)]
-        public string FullName { get; set; }
+        public string FullName { get; set; } = null!;
 
         public bool IsActive { get; set; } = true;
 

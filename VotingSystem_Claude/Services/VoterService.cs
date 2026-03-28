@@ -24,18 +24,18 @@ namespace VotingSystem_Claude.Services
                 .ToListAsync();
         }
 
-        public async Task<Voter> GetVoterByIdAsync(int id)
+        public async Task<Voter?> GetVoterByIdAsync(int id)
         {
             return await _context.Voters
                 .Include(v => v.Student)
                 .FirstOrDefaultAsync(v => v.Id == id);
         }
 
-        public async Task<Voter> GetVoterByCodeAsync(string voterCode)
+        public async Task<Voter?> GetVoterByCodeAsync(string voterCode)
         {
             return await _context.Voters
                 .Include(v => v.Student)
-                .FirstOrDefaultAsync(v => v.VoterCode.Code == voterCode);
+                .FirstOrDefaultAsync(v => v.VoterCode != null && v.VoterCode.Code == voterCode);
         }
 
         public async Task<Voter> CreateVoterAsync(Voter voter)

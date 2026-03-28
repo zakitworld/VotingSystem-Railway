@@ -22,7 +22,7 @@ namespace VotingSystem_Claude.Services
                 .ToListAsync();
         }
 
-        public async Task<Position> GetPositionByIdAsync(int id)
+        public async Task<Position?> GetPositionByIdAsync(int id)
         {
             return await _context.Positions
                 .Include(p => p.Candidates)

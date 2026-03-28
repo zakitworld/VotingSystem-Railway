@@ -123,6 +123,9 @@ builder.Services.AddScoped<IStudentService, StudentService>();
 // Register Analytics Service
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 
+// Register Theme Service
+builder.Services.AddScoped<ThemeService>();
+
 // Register Utility Services
 builder.Services.AddScoped<IRetryService, RetryService>();
 builder.Services.AddSingleton<IConnectivityService, ConnectivityService>();
@@ -228,11 +231,11 @@ if (!app.Environment.IsDevelopment())
 // Add security headers
 app.Use(async (context, next) =>
 {
-    context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Add("X-Frame-Options", "DENY");
-    context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
-    context.Response.Headers.Add("Referrer-Policy", "strict-origin-when-cross-origin");
-    context.Response.Headers.Add("Content-Security-Policy",
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("Content-Security-Policy",
     "default-src 'self'; " +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
     "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
@@ -243,8 +246,8 @@ app.Use(async (context, next) =>
     "form-action 'self'; " +
     "base-uri 'self'; " +
     "object-src 'none'");
-    context.Response.Headers.Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-    context.Response.Headers.Add("Permissions-Policy", 
+    context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+    context.Response.Headers.Append("Permissions-Policy", 
         "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()");
     await next();
 });
@@ -262,7 +265,7 @@ app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = ctx =>
     {
-        ctx.Context.Response.Headers.Add("Cache-Control", "public,max-age=31536000");
+        ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=31536000");
     }
 });
 app.UseAntiforgery();

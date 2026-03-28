@@ -169,7 +169,7 @@
 
                     <div class="mb-3">
                         <label for="positionTitle" class="form-label">Position Title *</label>
-                        <input type="text" class="form-control" id="positionTitle" @bind="_editingPosition.Title" required maxlength="100" />
+                        <input type="text" class="form-control" id="positionTitle" @bind="_editingPosition!.Title" required maxlength="100" />
                     </div>
 
                     <div class="mb-3">
@@ -239,6 +239,7 @@
     <div class="modal-backdrop fade show"></div>
 }
 
+#pragma warning disable CS8602
 @code {
     [Parameter] public int ElectionId { get; set; }
 
@@ -247,14 +248,14 @@
     private bool _deleting = false;
     private List<VotingSystem_Claude.Models.Position> _positions = new();
     private Dictionary<int, int> _candidateCounts = new();
-    private Election _election;
+    private Election? _election;
     private string _errorMessage = string.Empty;
 
     // Modal states
     private bool _showPositionModal = false;
     private bool _showDeleteModal = false;
     private VotingSystem_Claude.Models.Position _editingPosition = new();
-    private VotingSystem_Claude.Models.Position _positionToDelete;
+    private VotingSystem_Claude.Models.Position? _positionToDelete;
 
     protected override async Task OnInitializedAsync()
     {
@@ -350,7 +351,7 @@
             ClosePositionModal();
             await LoadData();
         }
-        catch (Exception ex)
+        catch
         {
             _errorMessage = "An error occurred while saving the position.";
         }
@@ -390,7 +391,7 @@
                 _errorMessage = "Failed to delete position.";
             }
         }
-        catch (Exception ex)
+        catch
         {
             _errorMessage = "An error occurred while deleting the position.";
         }

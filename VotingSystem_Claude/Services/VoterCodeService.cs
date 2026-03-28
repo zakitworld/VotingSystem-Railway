@@ -8,12 +8,10 @@ namespace VotingSystem_Claude.Services
     public class VoterCodeService : IVoterCodeService
     {
         private readonly ApplicationDbContext _context;
-        private readonly Random _random;
 
         public VoterCodeService(ApplicationDbContext context)
         {
             _context = context;
-            _random = new Random();
         }
 
         public async Task<string> GenerateVoterCodeAsync()
@@ -22,7 +20,7 @@ namespace VotingSystem_Claude.Services
             do
             {
                 code = GenerateCode();
-            } while (await _context.Voters.AnyAsync(v => v.VoterCode.Code == code));
+            } while (await _context.Voters.AnyAsync(v => v.VoterCode != null && v.VoterCode.Code == code));
 
             return code;
         }
@@ -34,7 +32,7 @@ namespace VotingSystem_Claude.Services
                 return false;
             }
 
-            return await _context.Voters.AnyAsync(v => v.VoterCode.Code == voterCode);
+            return await _context.Voters.AnyAsync(v => v.VoterCode != null && v.VoterCode.Code == voterCode);
         }
 
         public async Task<bool> AssignVoterCodeAsync(int voterId, string voterCode)
@@ -46,7 +44,7 @@ namespace VotingSystem_Claude.Services
             }
 
             // Check if the code is already in use
-            if (await _context.Voters.AnyAsync(v => v.VoterCode.Code == voterCode && v.Id != voterId))
+            if (await _context.Voters.AnyAsync(v => v.VoterCode != null && v.VoterCode.Code == voterCode && v.Id != voterId))
             {
                 return false;
             }
@@ -79,7 +77,7 @@ namespace VotingSystem_Claude.Services
             // Generate a 6-digit alphanumeric code
             const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
             return new string(Enumerable.Repeat(chars, 6)
-                .Select(s => s[_random.Next(s.Length)]).ToArray());
+                .Select(s => s[Random.Shared.Next(s.Length)]).ToArray());
         }
 
         public async Task<List<Voter>> GetVotersWithoutCodesAsync()
@@ -95,7 +93,7 @@ namespace VotingSystem_Claude.Services
                 do
                 {
                     code = GenerateCode();
-                } while (await _context.Voters.AnyAsync(v => v.VoterCode.Code == code));
+                } while (await _context.Voters.AnyAsync(v => v.VoterCode != null && v.VoterCode.Code == code));
 
                 var voter = new Voter
                 {

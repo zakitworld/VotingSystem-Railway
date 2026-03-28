@@ -27,7 +27,7 @@ namespace VotingSystem_Claude.Services
                 .ToListAsync();
         }
 
-        public async Task<Candidate> GetCandidateByIdAsync(int id)
+        public async Task<Candidate?> GetCandidateByIdAsync(int id)
         {
             return await _context.Candidates
                 .Include(c => c.Student)
@@ -116,7 +116,7 @@ namespace VotingSystem_Claude.Services
             if (!string.IsNullOrEmpty(searchTerm))
             {
                 query = query.Where(c => c.FullName.Contains(searchTerm) ||
-                                        c.Class.Contains(searchTerm));
+                                        (c.Class != null && c.Class.Contains(searchTerm)));
             }
 
             if (electionId.HasValue)
@@ -128,7 +128,7 @@ namespace VotingSystem_Claude.Services
             return await query.Include(c => c.Position).ToListAsync();
         }
 
-        public async Task<string> UploadCandidateImageAsync(IBrowserFile imageFile)
+        public async Task<string?> UploadCandidateImageAsync(IBrowserFile imageFile)
         {
             if (imageFile == null)
             {

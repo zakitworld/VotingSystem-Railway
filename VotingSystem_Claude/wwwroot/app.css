@@ -223,3 +223,54 @@ h1:focus {
         color: #495057 !important;
     }
 }
+
+/* ── Dark mode overrides (Bootstrap 5.3 data-bs-theme="dark") ──
+   Use html[data-bs-theme="dark"] for higher specificity than Blazor
+   scoped selectors (.class[b-xxxxx] = 0,2,0) so these win.        */
+
+/* Main layout top bar (MainLayout.razor.css scoped overridden here) */
+html[data-bs-theme="dark"] .top-row {
+    background-color: #1a1a2e !important;
+    border-bottom-color: #2d2d44 !important;
+}
+
+html[data-bs-theme="dark"] .top-row a,
+html[data-bs-theme="dark"] .top-row .btn-link {
+    color: #6ea8fe !important;
+}
+
+/* ── Dark mode overrides (Bootstrap 5.3 data-bs-theme="dark") ── */
+[data-bs-theme="dark"] a,
+[data-bs-theme="dark"] .btn-link {
+    color: #6ea8fe;
+}
+
+[data-bs-theme="dark"] .btn-primary {
+    background-color: #3d8bcd;
+    border-color: #3d8bcd;
+}
+
+[data-bs-theme="dark"] .valid.modified:not([type=checkbox]) {
+    outline-color: #40c770;
+}
+
+[data-bs-theme="dark"] .invalid {
+    outline-color: #ff6b6b;
+}
+
+[data-bs-theme="dark"] .validation-message {
+    color: #ff6b6b;
+}
+
+[data-bs-theme="dark"] .text-muted {
+    color: #adb5bd !important;
+}
+
+[data-bs-theme="dark"] #blazor-error-ui {
+    background: #2d2a00;
+    color: #ffe066;
+}
+
+[data-bs-theme="dark"] .progress {
+    background-color: rgba(255, 255, 255, 0.15);
+}

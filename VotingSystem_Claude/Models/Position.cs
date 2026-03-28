@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace VotingSystem_Claude.Models
@@ -10,9 +10,9 @@ namespace VotingSystem_Claude.Models
 
         [Required]
         [StringLength(100)]
-        public string Title { get; set; }
+        public string Title { get; set; } = "";
 
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         public int MaxSelectableOptions { get; set; } = 1;
 
@@ -22,8 +22,8 @@ namespace VotingSystem_Claude.Models
         public int ElectionId { get; set; }
 
         // Navigation properties
-        public virtual Election Election { get; set; }
-        public virtual ICollection<Candidate> Candidates { get; set; }
-        public virtual ICollection<Vote> Votes { get; set; }
+        public virtual Election Election { get; set; } = null!;
+        public virtual ICollection<Candidate> Candidates { get; set; } = [];
+        public virtual ICollection<Vote> Votes { get; set; } = [];
     }
 }

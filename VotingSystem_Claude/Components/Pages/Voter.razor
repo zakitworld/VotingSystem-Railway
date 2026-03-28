@@ -269,7 +269,7 @@
             if (!string.IsNullOrWhiteSpace(_searchTerm))
             {
                 filtered = filtered.Where(v =>
-                    v.VoterCode.Code.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (v.VoterCode?.Code?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
                     (v.Student?.FullName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
                     (v.Student?.StudentId?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
                     (v.Student?.Class?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));

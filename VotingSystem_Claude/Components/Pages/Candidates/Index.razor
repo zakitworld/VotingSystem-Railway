@@ -294,7 +294,7 @@
     private List<Student> _students = new();
     private Dictionary<int, int> _voteCounts = new();
 
-    private Election _selectedElection;
+    private Election? _selectedElection;
     private string _selectedPositionId = "";
     private string _searchTerm = "";
     private bool _loading = true;
@@ -306,12 +306,12 @@
     private string _modalErrorMessage = "";
     private CandidateModel _candidateModel = new();
 
-    private IBrowserFile _selectedFile;
+    private IBrowserFile? _selectedFile;
 
     // Added members for displaying messages
     private string _message = string.Empty;
     private bool _isError;
-    private Timer _messageTimer; // Timer for auto-hiding messages
+    private Timer? _messageTimer; // Timer for auto-hiding messages
 
     protected override async Task OnInitializedAsync()
     {
@@ -488,11 +488,11 @@
             _selectedFile = null; // Clear selected file after saving
             await LoadData(); // Reload all data after saving
         }
-        catch (Exception ex)
+        catch (Exception savEx)
         {
-            _modalErrorMessage = $"Error saving candidate: {ex.Message}";
+            _modalErrorMessage = $"Error saving candidate: {savEx.Message}";
             // Log the exception for debugging
-            Console.WriteLine($"Error saving candidate: {ex}");
+            Console.WriteLine($"Error saving candidate: {savEx}");
         }
         finally
         {
@@ -531,7 +531,7 @@
                 await JSRuntime.InvokeVoidAsync("alert", "Failed to delete candidate.");
             }
         }
-        catch (Exception ex)
+        catch
         {
             await JSRuntime.InvokeVoidAsync("alert", "An error occurred while deleting the candidate.");
         }
@@ -588,7 +588,7 @@
         _messageTimer?.Dispose(); // Dispose timer when message is cleared manually or by timer
     }
 
-    private async void HandleTimerElapsed(object sender, ElapsedEventArgs e)
+    private async void HandleTimerElapsed(object? sender, ElapsedEventArgs e)
     {
         await InvokeAsync(() =>
         {

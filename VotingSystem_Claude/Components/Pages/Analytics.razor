@@ -230,11 +230,11 @@
 
 @code {
     private bool _loading = true;
-    private VoterAnalytics _voterAnalytics;
-    private RealTimeStats _realTimeStats;
-    private VoterTurnoutStats _voterTurnoutStats;
-    private TrendAnalysis _trendAnalysis;
-    private List<ReportTemplate> _reportTemplates;
+    private VoterAnalytics? _voterAnalytics;
+    private RealTimeStats? _realTimeStats;
+    private VoterTurnoutStats? _voterTurnoutStats;
+    private TrendAnalysis? _trendAnalysis;
+    private List<ReportTemplate> _reportTemplates = [];
     private int _selectedElectionId;
 
     protected override async Task OnInitializedAsync()
@@ -263,7 +263,7 @@
 
             _reportTemplates = await AnalyticsService.GetAvailableReportTemplatesAsync();
         }
-        catch (Exception ex)
+        catch
         {
             // Handle error
         }

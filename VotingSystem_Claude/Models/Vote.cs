@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace VotingSystem_Claude.Models
@@ -26,9 +26,9 @@ namespace VotingSystem_Claude.Models
         public string? Location { get; set; }
 
         // Navigation properties
-        public virtual Voter Voter { get; set; }
-        public virtual Candidate Candidate { get; set; }
-        public virtual Position Position { get; set; }
-        public virtual Election Election { get; set; }
+        public virtual Voter Voter { get; set; } = null!;
+        public virtual Candidate Candidate { get; set; } = null!;
+        public virtual Position Position { get; set; } = null!;
+        public virtual Election Election { get; set; } = null!;
     }
 }

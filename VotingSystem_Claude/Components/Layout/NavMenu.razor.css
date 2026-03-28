@@ -103,3 +103,38 @@
         overflow-y: auto;
     }
 }
+
+/* ── Theme toggle button ───────────────────────────────────── */
+.theme-toggle-btn {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+/* Override the nav-item .bi SVG sizing so font icons render correctly */
+.theme-toggle-btn .theme-icon {
+    width: auto;
+    height: auto;
+    margin-right: 0;
+    top: 0;
+    position: static;
+    background-image: none;
+    font-size: 1rem;
+    line-height: 1;
+}

@@ -103,13 +103,13 @@
 
     private async void UpdateCountdown(object? state)
     {
-        await InvokeAsync(() =>
+        await InvokeAsync(async () =>
         {
             _remainingSeconds--;
             if (_remainingSeconds <= 0)
             {
                 _warningTimer?.Dispose();
-                LogoutNow();
+                await LogoutNow();
             }
             StateHasChanged();
         });

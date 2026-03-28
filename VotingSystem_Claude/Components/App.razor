@@ -11,6 +11,16 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <HeadOutlet @rendermode="InteractiveServer" />
+    <!-- Anti-flash: apply stored theme before first paint -->
+    <script>
+        (function () {
+            var t = localStorage.getItem('app-theme') || 'system';
+            var e = t === 'system'
+                ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                : t;
+            document.documentElement.setAttribute('data-bs-theme', e);
+        })();
+    </script>
 </head>
 
 <body>
@@ -18,6 +28,7 @@
     <script src="_framework/blazor.web.js"></script>
     <script src="@Assets["lib/bootstrap/dist/js/bootstrap.bundle.min.js"]"></script>
     <script src="@Assets["js/dropdown.js"]"></script>
+    <script src="@Assets["js/theme.js"]"></script>
 </body>
 
 </html>

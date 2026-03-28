@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace VotingSystem_Claude.Models
 {
@@ -9,26 +9,26 @@ namespace VotingSystem_Claude.Models
 
         [Required]
         [StringLength(100)]
-        public string FullName { get; set; }
+        public string FullName { get; set; } = null!;
 
         [Required]
         [StringLength(20)]
-        public string StudentId { get; set; }
+        public string StudentId { get; set; } = null!;
 
         [StringLength(50)]
-        public string Class { get; set; }
+        public string? Class { get; set; }
 
         [StringLength(20)]
-        public string House { get; set; }
+        public string? House { get; set; }
 
-        public string Gender { get; set; }
+        public string? Gender { get; set; }
 
         public DateTime DateOfBirth { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
-        public virtual Voter Voter { get; set; }
-        public virtual ICollection<Candidate> Candidates { get; set; }
+        public virtual Voter? Voter { get; set; }
+        public virtual ICollection<Candidate> Candidates { get; set; } = [];
     }
 }

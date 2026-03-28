@@ -65,8 +65,8 @@
 
 @code {
     private bool _loading = true;
-    private VotingSystem_Claude.Models.Voter _voter;
-    private Election _activeElection;
+    private VotingSystem_Claude.Models.Voter? _voter;
+    private Election? _activeElection;
     private bool _hasVoted;
 
     protected override async Task OnInitializedAsync()

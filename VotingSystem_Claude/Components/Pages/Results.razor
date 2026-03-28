@@ -222,15 +222,15 @@
     [Parameter] public int? ElectionId { get; set; }
 
     private bool _loading = true;
-    private VotingSystem_Claude.Models.Voter _voter;
+    private VotingSystem_Claude.Models.Voter? _voter;
     private bool _isAdmin;
-    private List<Election> _elections;
-    private Election _selectedElection;
+    private List<Election> _elections = [];
+    private Election? _selectedElection;
     private int? _selectedElectionId;
-    private Dictionary<int, List<CandidateResult>> _results;
+    private Dictionary<int, List<CandidateResult>> _results = [];
     private int _totalVoters;
     private int _totalEligibleVoters;
-    private Dictionary<string, int> _voterBreakdown;
+    private Dictionary<string, int> _voterBreakdown = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -283,7 +283,7 @@
         else
         {
             _selectedElection = null;
-            _results = null;
+            _results = [];
             _selectedElectionId = null;
         }
     }

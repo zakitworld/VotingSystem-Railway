@@ -84,6 +84,8 @@ namespace VotingSystem_Claude.Services
 
             foreach (var className in classData)
             {
+                if (className == null) continue;
+
                 var count = await _context.Votes
                     .Where(v => v.ElectionId == electionId && v.Voter.Student.Class == className)
                     .Select(v => v.VoterId)
@@ -100,9 +102,9 @@ namespace VotingSystem_Claude.Services
     public class CandidateResult
     {
         public int CandidateId { get; set; }
-        public string FullName { get; set; }
-        public string Class { get; set; }
-        public string ImagePath { get; set; }
+        public string FullName { get; set; } = null!;
+        public string? Class { get; set; }
+        public string? ImagePath { get; set; }
         public int VoteCount { get; set; }
     }
 }

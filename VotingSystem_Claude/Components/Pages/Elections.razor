@@ -147,7 +147,7 @@
                                 <div class="row mb-3">
                                     <div class="col-12">
                                         <label class="form-label">Title *</label>
-                                        <input type="text" class="form-control" @bind="_editingElection.Title" required maxlength="100" />
+                                        <input type="text" class="form-control" @bind="_editingElection!.Title" required maxlength="100" />
                                     </div>
                                 </div>
                                 <div class="row mb-3">
@@ -217,6 +217,7 @@
     }
 </div>
 
+#pragma warning disable CS8602
 @code {
     private bool _loading = true;
     private bool _isAdmin;
@@ -227,7 +228,7 @@
     private bool _showElectionModal;
     private bool _showDeleteModal;
     private Election _editingElection = new();
-    private Election _electionToDelete;
+    private Election? _electionToDelete;
 
     [Parameter]
     public int? ElectionId { get; set; }
@@ -266,8 +267,8 @@
     {
         try
         {
-            _editingElection = await ElectionService.GetElectionByIdAsync(electionId);
-            if (_editingElection == null)
+            _editingElection = await ElectionService.GetElectionByIdAsync(electionId) ?? new Election();
+            if (_editingElection.Id == 0)
             {
                 ShowMessage($"Election with ID {electionId} not found.", true);
                 NavigationManager.NavigateTo("/elections"); // Redirect if not found

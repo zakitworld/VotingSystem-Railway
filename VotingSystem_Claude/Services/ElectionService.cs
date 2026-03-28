@@ -21,7 +21,7 @@ namespace VotingSystem_Claude.Services
                 .ToListAsync();
         }
 
-        public async Task<Election> GetElectionByIdAsync(int id)
+        public async Task<Election?> GetElectionByIdAsync(int id)
         {
             return await _context.Elections
                 .Include(e => e.Positions)
@@ -29,7 +29,7 @@ namespace VotingSystem_Claude.Services
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
 
-        public async Task<Election> GetActiveElectionAsync()
+        public async Task<Election?> GetActiveElectionAsync()
         {
             var now = DateTime.UtcNow;
             return await _context.Elections
