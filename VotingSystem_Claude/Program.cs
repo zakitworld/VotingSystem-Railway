@@ -24,8 +24,13 @@ builder.Services.AddRazorComponents()
 // Configure SQL Server Database with retry policy
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ??
-        "Data Source=DESKTOP-7KP0LFF\\SQLEXPRESS;Initial Catalog=Voting_System;Integrated Security=True;Trust Server Certificate=True",
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connectionString))
+    {
+        throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+    }
+
+    options.UseSqlServer(connectionString,
         sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
             maxRetryDelay: TimeSpan.FromSeconds(30),
@@ -95,9 +100,9 @@ builder.Services.AddResponseCompression(options =>
 });
 
 // Add health checks
-// builder.Services.AddHealthChecks()
-//     .AddDbContextCheck<ApplicationDbContext>()
-//     .AddCheck("self", () => HealthCheckResult.Healthy());
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ApplicationDbContext>()
+    .AddCheck("self", () => HealthCheckResult.Healthy());
 
 // Add caching
 builder.Services.AddMemoryCache();
@@ -278,24 +283,24 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Add health checks endpoint
-// app.MapHealthChecks("/health", new HealthCheckOptions
-// {
-//     ResponseWriter = async (context, report) =>
-//     {
-//         context.Response.ContentType = "application/json";
-//         var response = new
-//         {
-//             status = report.Status.ToString(),
-//             checks = report.Entries.Select(x => new
-//             {
-//                 name = x.Key,
-//                 status = x.Value.Status.ToString(),
-//                 description = x.Value.Description
-//             })
-//         };
-//         await context.Response.WriteAsync(JsonSerializer.Serialize(response));
-//     }
-// });
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var response = new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(x => new
+            {
+                name = x.Key,
+                status = x.Value.Status.ToString(),
+                description = x.Value.Description
+            })
+        };
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+    }
+});
 
 // Add error handling middleware
 app.Use(async (context, next) =>

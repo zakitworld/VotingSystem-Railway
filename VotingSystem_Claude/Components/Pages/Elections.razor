@@ -1,4 +1,4 @@
-﻿@page "/elections"
+@page "/elections"
 @page "/elections/{ElectionId:int}"
 @using VotingSystem_Claude.Models
 @using VotingSystem_Claude.Services
@@ -87,27 +87,12 @@
                                         <td>@election.StartDate.ToString("MMM dd, yyyy")</td>
                                         <td>@election.EndDate.ToString("MMM dd, yyyy")</td>
                                         <td>
-                                            @if (election.IsActive)
-                                            {
-                                                <span class="badge bg-success">Active</span>
-                                            }
-                                            else if (election.EndDate < DateTime.UtcNow)
-                                            {
-                                                <span class="badge bg-secondary">Ended</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-warning">Inactive</span>
-                                            }
+                                            <span class="badge bg-@election.StatusClass">@election.StatusLabel</span>
                                         </td>
                                         <td>
                                             <div class="btn-group" role="group">
                                                 <button class="btn btn-sm btn-outline-primary" @onclick="() => ManagePositions(election.Id)">Positions</button>
                                                 <button class="btn btn-sm btn-outline-info" @onclick="() => ViewResults(election.Id)">Results</button>
-                                                @if (!election.IsActive && election.EndDate >= DateTime.UtcNow)
-                                                {
-                                                    <button class="btn btn-sm btn-success" @onclick="() => ActivateElection(election.Id)">Activate</button>
-                                                }
                                                 <button class="btn btn-sm btn-warning" @onclick="() => EditElection(election)">Edit</button>
                                                 <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDeleteElection(election)">Delete</button>
                                             </div>
@@ -166,9 +151,8 @@
                                         <input type="text" class="form-control" @bind="_editingElection.SchoolYear" placeholder="e.g., 2024-2025" />
                                     </div>
                                     <div class="col-md-6 d-flex align-items-end">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="isActive" @bind="_editingElection.IsActive" />
-                                            <label class="form-check-label" for="isActive">Active Election</label>
+                                        <div class="alert alert-info py-2 mb-0 w-100">
+                                            <small><i class="bi bi-info-circle me-1"></i> Status is automatically determined by dates.</small>
                                         </div>
                                     </div>
                                 </div>
@@ -217,8 +201,8 @@
     }
 </div>
 
-#pragma warning disable CS8602
 @code {
+    #pragma warning disable CS8602
     private bool _loading = true;
     private bool _isAdmin;
     private List<Election> _elections = new();

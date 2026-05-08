@@ -1,4 +1,4 @@
-﻿@page "/positions/{ElectionId:int}"
+@page "/positions/{ElectionId:int}"
 @using VotingSystem_Claude.Models
 @using VotingSystem_Claude.Services.Interfaces
 @inject VotingSystem_Claude.Services.Interfaces.IPositionService PositionService
@@ -239,8 +239,8 @@
     <div class="modal-backdrop fade show"></div>
 }
 
-#pragma warning disable CS8602
 @code {
+    #pragma warning disable CS8602
     [Parameter] public int ElectionId { get; set; }
 
     private bool _loading = true;

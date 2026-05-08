@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="VotingSystem_Claude\VotingSystem_Claude.csproj" />
+  <Project Path="VotingSystem_Claude.Tests\VotingSystem_Claude.Tests.csproj" />
+</Solution>

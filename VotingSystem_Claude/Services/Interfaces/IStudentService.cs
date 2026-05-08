@@ -11,5 +11,11 @@ namespace VotingSystem_Claude.Services.Interfaces
         Task<bool> UpdateStudentAsync(Student student);
         Task<bool> DeleteStudentAsync(int id);
         Task<List<Student>> GetAvailableStudentsAsync();
+        
+        // Import/Export
+        Task<(int Imported, int Skipped, string Message)> ImportStudentsFromExcelAsync(Stream fileStream);
+        Task<(int Imported, int Skipped, string Message)> ImportStudentsFromCsvAsync(Stream fileStream);
+        Task<byte[]> ExportStudentsToExcelAsync();
+        Task<string> ExportStudentsToCsvAsync();
     }
-} 
+}

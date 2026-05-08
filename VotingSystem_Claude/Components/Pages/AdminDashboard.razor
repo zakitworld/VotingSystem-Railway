@@ -1,4 +1,4 @@
-﻿@page "/admin-dashboard"
+@page "/admin-dashboard"
 @using VotingSystem_Claude.Models
 @using VotingSystem_Claude.Services
 @using VotingSystem_Claude.Services.Interfaces
@@ -101,14 +101,14 @@ else
                                     {
                                         <small class="text-success">
                                             <i class="bi bi-dot"></i>
-                                            1 Active
+                                            Currently Active
                                         </small>
                                     }
                                     else
                                     {
                                         <small class="text-muted">
                                             <i class="bi bi-dot"></i>
-                                            None Active
+                                            None Live
                                         </small>
                                     }
                                 </div>
@@ -201,7 +201,7 @@ else
                             <div class="card-header bg-primary text-white">
                                 <h5 class="mb-0">
                                     <i class="bi bi-calendar-check me-2"></i>
-                                    Active Election: @_activeElection.Title
+                                    Live Election: @_activeElection.Title
                                 </h5>
                             </div>
                             <div class="card-body">
@@ -321,18 +321,7 @@ else
                                 {
                                     <div class="d-flex align-items-center mb-3">
                                         <div class="flex-shrink-0">
-                                            @if (election.IsActive)
-                                            {
-                                                <span class="badge bg-success">Active</span>
-                                            }
-                                            else if (election.EndDate < DateTime.UtcNow)
-                                            {
-                                                <span class="badge bg-secondary">Ended</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-warning">Upcoming</span>
-                                            }
+                                            <span class="badge bg-@election.StatusClass">@election.StatusLabel</span>
                                         </div>
                                         <div class="flex-grow-1 ms-3">
                                             <h6 class="mb-0">@election.Title</h6>

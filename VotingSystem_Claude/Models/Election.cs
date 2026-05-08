@@ -25,6 +25,27 @@ namespace VotingSystem_Claude.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        // Status Helpers (Time-based)
+        public bool IsUpcoming => DateTime.UtcNow < StartDate;
+        public bool IsLive => DateTime.UtcNow >= StartDate && DateTime.UtcNow <= EndDate;
+        public bool IsPast => DateTime.UtcNow > EndDate;
+
+        public string StatusLabel => DateTime.UtcNow switch
+        {
+            _ when IsUpcoming => "Upcoming",
+            _ when IsLive => "Active",
+            _ when IsPast => "Ended",
+            _ => "Unknown"
+        };
+
+        public string StatusClass => DateTime.UtcNow switch
+        {
+            _ when IsUpcoming => "warning",
+            _ when IsLive => "success",
+            _ when IsPast => "secondary",
+            _ => "info"
+        };
+
         // Navigation properties
         public virtual ICollection<Position> Positions { get; set; } = [];
         public virtual ICollection<Vote> Votes { get; set; } = [];

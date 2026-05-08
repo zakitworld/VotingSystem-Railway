@@ -1,4 +1,4 @@
-﻿@page "/students"
+@page "/students"
 @using VotingSystem_Claude.Services
 @using VotingSystem_Claude.Services.Interfaces
 @using VotingSystem_Claude.Models
@@ -12,13 +12,23 @@
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h3>Students Management</h3>
-                <button class="btn btn-outline-secondary" @onclick="NavigateBack">
-                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
-                </button>
-                <button class="btn btn-primary" @onclick="ShowCreateModal">
-                    <i class="fas fa-plus"></i> Add New Student
-                </button>   
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-outline-secondary me-3" @onclick="NavigateBack">
+                        <i class="bi bi-arrow-left"></i>
+                    </button>
+                    <h3 class="mb-0">Students Management</h3>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-outline-success" @onclick="ExportToExcel" title="Export to Excel">
+                        <i class="bi bi-file-earmark-excel me-1"></i> Export
+                    </button>
+                    <button class="btn btn-outline-primary" @onclick="() => showImportModal = true" title="Import from Excel/CSV">
+                        <i class="bi bi-file-earmark-arrow-up me-1"></i> Import
+                    </button>
+                    <button class="btn btn-primary" @onclick="ShowCreateModal">
+                        <i class="bi bi-plus-circle me-1"></i> Add New Student
+                    </button>
+                </div>
             </div>
 
             @if (loading)
@@ -134,12 +144,59 @@
     </div>
 }
 
+<!-- Import Modal -->
+@if (showImportModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Import Students</h5>
+                    <button type="button" class="btn-close" @onclick="() => showImportModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Upload an Excel (.xlsx) or CSV file with the following columns:
+                        <strong>Student ID, Full Name, Class, House, Gender</strong>
+                    </p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Choose File</label>
+                        <InputFile OnChange="HandleFileSelected" class="form-control" accept=".xlsx,.csv" />
+                    </div>
+
+                    @if (importing)
+                    {
+                        <div class="text-center py-2">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <span class="ms-2">Processing file...</span>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(importMessage))
+                    {
+                        <div class="alert alert-info mt-2 py-2">
+                            <small>@importMessage</small>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showImportModal = false">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Student> students = new();
     private Student currentStudent = new();
     private bool showModal = false;
+    private bool showImportModal = false;
     private bool isEditing = false;
     private bool loading = true;
+    private bool importing = false;
+    private string importMessage = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -238,5 +295,65 @@
     private void NavigateBack()
     {
         NavigationManager.NavigateTo("/admin-dashboard");
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        try
+        {
+            importing = true;
+            importMessage = "Reading file...";
+            StateHasChanged();
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10MB limit
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            (int imported, int skipped, string message) result;
+
+            if (file.Name.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                result = await StudentService.ImportStudentsFromExcelAsync(memoryStream);
+            }
+            else if (file.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                result = await StudentService.ImportStudentsFromCsvAsync(memoryStream);
+            }
+            else
+            {
+                importMessage = "Unsupported file format. Please use .xlsx or .csv";
+                return;
+            }
+
+            importMessage = result.message;
+            await LoadStudents();
+        }
+        catch (Exception ex)
+        {
+            importMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            importing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ExportToExcel()
+    {
+        try
+        {
+            var content = await StudentService.ExportStudentsToExcelAsync();
+            var fileName = $"Students_Export_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", content);
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Export failed: " + ex.Message);
+        }
     }
 }

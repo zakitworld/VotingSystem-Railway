@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using VotingSystem_Claude.Data;
 using VotingSystem_Claude.Models;
 using VotingSystem_Claude.Services.Interfaces;
@@ -35,7 +35,7 @@ namespace VotingSystem_Claude.Services
             return await _context.Elections
                 .Include(e => e.Positions.OrderBy(p => p.DisplayOrder))
                 .ThenInclude(p => p.Candidates)
-                .FirstOrDefaultAsync(e => e.IsActive && e.StartDate <= now && e.EndDate >= now);
+                .FirstOrDefaultAsync(e => e.StartDate <= now && e.EndDate >= now);
         }
 
         public async Task<Election> CreateElectionAsync(Election election)

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -20,6 +20,18 @@
                 : t;
             document.documentElement.setAttribute('data-bs-theme', e);
         })();
+    </script>
+    <script>
+        window.downloadFile = (fileName, contentType, content) => {
+            const blazorBlob = new Blob([content], { type: contentType });
+            const url = URL.createObjectURL(blazorBlob);
+            const anchorElement = document.createElement('a');
+            anchorElement.href = url;
+            anchorElement.download = fileName ?? '';
+            anchorElement.click();
+            anchorElement.remove();
+            URL.revokeObjectURL(url);
+        };
     </script>
 </head>
 

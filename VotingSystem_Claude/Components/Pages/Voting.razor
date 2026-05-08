@@ -1,4 +1,4 @@
-﻿@page "/voting/{ElectionId:int}"
+@page "/voting/{ElectionId:int}"
 @using VotingSystem_Claude.Components.Shared
 @using VotingSystem_Claude.Services
 @using VotingSystem_Claude.Services.Interfaces
@@ -356,7 +356,7 @@
             return;
         }
 
-        if (!_election.IsActive || _election.StartDate > DateTime.UtcNow || _election.EndDate < DateTime.UtcNow)
+        if (!_election.IsLive)
         {
             _errorMessage = "This election is not currently active.";
             return;
