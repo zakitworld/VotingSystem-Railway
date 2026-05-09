@@ -1,0 +1,235 @@
+@page "/admin-profile"
+@using VotingSystem_Claude.Models
+@using VotingSystem_Claude.Services
+@using VotingSystem_Claude.Services.Interfaces
+@inject IAuthService AuthService
+@inject IAdminService AdminService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ThemeService ThemeService
+
+<PageTitle>Admin Profile - School Voting System</PageTitle>
+
+@if (_loading)
+{
+    <div class="container mt-5">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading profile...</p>
+        </div>
+    </div>
+}
+else if (!_isAuthenticated || _admin == null)
+{
+    <div class="container mt-5">
+        <div class="alert alert-danger">
+            <h4>Access Denied</h4>
+            <p>You must be logged in as an administrator to access this page.</p>
+            <button class="btn btn-primary" @onclick="GoToHome">Go to Login</button>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/admin-dashboard">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Profile Settings</li>
+                    </ol>
+                </nav>
+                <h1 class="h2">
+                    <i class="bi bi-person-circle me-2"></i>
+                    Admin Profile
+                </h1>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Profile Info -->
+            <div class="col-lg-4 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 100px; height: 100px;">
+                                <i class="bi bi-person text-primary fs-1"></i>
+                            </div>
+                        </div>
+                        <h4 class="mb-1">@_admin.FullName</h4>
+                        <p class="text-muted mb-3">@@@_admin.Username</p>
+                        <span class="badge bg-success mb-3">Active Administrator</span>
+                        <hr />
+                        <div class="text-start">
+                            <p class="mb-2"><strong>Email:</strong> @_admin.Email</p>
+                            <p class="mb-2"><strong>Last Login:</strong> @(_admin.LastLoginTime?.ToString("MMM dd, yyyy HH:mm") ?? "Never")</p>
+                            <p class="mb-0"><strong>Last IP:</strong> @(_admin.LastLoginIp ?? "N/A")</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Change Password -->
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Change Password</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(_successMessage))
+                        {
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                <i class="bi bi-check-circle me-2"></i>@_successMessage
+                                <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(_errorMessage))
+                        {
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
+                                <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+                            </div>
+                        }
+
+                        <EditForm Model="@_passwordModel" OnValidSubmit="HandleChangePassword">
+                            <DataAnnotationsValidator />
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Current Password</label>
+                                <InputText type="password" class="form-control" @bind-Value="_passwordModel.CurrentPassword" />
+                                <ValidationMessage For="@(() => _passwordModel.CurrentPassword)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">New Password</label>
+                                <InputText type="password" class="form-control" @bind-Value="_passwordModel.NewPassword" />
+                                <ValidationMessage For="@(() => _passwordModel.NewPassword)" class="text-danger" />
+                                <small class="text-muted">Password must be at least 12 characters and include uppercase, lowercase, numbers, and symbols.</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Confirm New Password</label>
+                                <InputText type="password" class="form-control" @bind-Value="_passwordModel.ConfirmPassword" />
+                                <ValidationMessage For="@(() => _passwordModel.ConfirmPassword)" class="text-danger" />
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary" disabled="@_isSubmitting">
+                                    @if (_isSubmitting)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        <span>Updating...</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-shield-lock me-2"></i>
+                                        <span>Update Password</span>
+                                    }
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Account Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">Additional account settings will be available in future updates.</p>
+                        <button class="btn btn-outline-secondary" @onclick='() => NavigationManager.NavigateTo("/admin-dashboard")'>
+                            Back to Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _isAuthenticated = false;
+    private Admin? _admin;
+    private PasswordChangeModel _passwordModel = new();
+    private bool _isSubmitting = false;
+    private string? _successMessage;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthenticated = await AuthService.IsAdminAsync();
+        
+        if (_isAuthenticated)
+        {
+            var currentUser = await AuthService.GetAuthenticatedAdminAsync();
+            if (currentUser != null)
+            {
+                _admin = await AdminService.GetAdminByIdAsync(currentUser.Id);
+            }
+        }
+        
+        _loading = false;
+    }
+
+    private async Task HandleChangePassword()
+    {
+        if (_admin == null) return;
+        
+        _isSubmitting = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            if (_passwordModel.NewPassword != _passwordModel.ConfirmPassword)
+            {
+                _errorMessage = "New passwords do not match.";
+                return;
+            }
+
+            var success = await AdminService.ChangePasswordAsync(_admin.Id, _passwordModel.CurrentPassword, _passwordModel.NewPassword);
+            
+            if (success)
+            {
+                _successMessage = "Password successfully updated!";
+                _passwordModel = new(); // Reset form
+            }
+            else
+            {
+                _errorMessage = "Incorrect current password or invalid new password.";
+            }
+        }
+        catch (Exception)
+        {
+            _errorMessage = "An error occurred while updating the password.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private void GoToHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+    public class PasswordChangeModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Current password is required")]
+        public string CurrentPassword { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "New password is required")]
+        [System.ComponentModel.DataAnnotations.MinLength(12, ErrorMessage = "Password must be at least 12 characters")]
+        public string NewPassword { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Confirmation is required")]
+        [System.ComponentModel.DataAnnotations.Compare(nameof(NewPassword), ErrorMessage = "Passwords do not match")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

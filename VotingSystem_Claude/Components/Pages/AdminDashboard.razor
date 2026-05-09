@@ -61,6 +61,10 @@ else
                             <i class="@ThemeService.Icon me-1"></i>
                             @ThemeService.Label
                         </button>
+                        <button class="btn btn-outline-primary me-2" @onclick='() => NavigationManager.NavigateTo("/admin-profile")'>
+                            <i class="bi bi-person-circle me-1"></i>
+                            Profile
+                        </button>
                         <button class="btn btn-outline-primary me-2" @onclick="RefreshData">
                             <i class="bi bi-arrow-clockwise me-1"></i>
                             Refresh
