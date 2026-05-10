@@ -182,7 +182,11 @@ try
         {
             // In development, always ensure we have a working admin account
             var existingAdmin = await adminService.GetAdminByUsernameAsync("admin");
-            var testPassword = "Admin123!"; // Simple password for development
+            // Use configuration for admin password, with a fallback for local development only
+            var configPassword = builder.Configuration["SeedData:AdminPassword"];
+            var testPassword = !string.IsNullOrEmpty(configPassword) && configPassword != "REPLACE_WITH_SECURE_PASSWORD" 
+                ? configPassword 
+                : "Admin@123456"; // Default for development if not configured
             
             if (existingAdmin != null)
             {
@@ -230,10 +234,17 @@ try
                     IsActive = true
                 };
                 
-                var success = await adminService.CreateAdminAsync(admin, "Admin123!");
+                var prodAdminPassword = builder.Configuration["SeedData:AdminPassword"];
+                if (string.IsNullOrEmpty(prodAdminPassword) || prodAdminPassword == "REPLACE_WITH_SECURE_PASSWORD")
+                {
+                    logger.LogCritical("PRODUCTION: Admin password not configured in SeedData:AdminPassword. Administrator account cannot be created.");
+                    // In production, we should probably not have a default password at all if not configured
+                    return;
+                }
+                var success = await adminService.CreateAdminAsync(admin, prodAdminPassword);
                 if (success)
                 {
-                    logger.LogWarning("Default admin created - Username: admin, Password: Admin123!");
+                    logger.LogWarning("Default admin created - Username: admin. Please check configuration for password.");
                 }
             }
             else
