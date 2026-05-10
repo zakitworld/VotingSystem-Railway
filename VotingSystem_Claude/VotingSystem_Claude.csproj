@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateStaticLaunchAssets>false</GenerateStaticLaunchAssets>
+    <UserSecretsId>ac0c5ce1-bc28-4f3a-9bf1-56ddef089f1e</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
