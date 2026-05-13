@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using VotingSystem_Claude.Data;
 using VotingSystem_Claude.Models;
 using VotingSystem_Claude.Services.Interfaces;
@@ -38,7 +38,7 @@ namespace VotingSystem_Claude.Services
                 .ThenInclude(p => p.Candidates) // Include candidates for validation
                 .FirstOrDefaultAsync(e => e.Id == electionId);
 
-            if (election == null || !election.IsActive ||
+            if (election == null ||
                 election.StartDate > DateTime.UtcNow ||
                 election.EndDate < DateTime.UtcNow)
             {
@@ -137,9 +137,9 @@ namespace VotingSystem_Claude.Services
                 return false;
             }
 
-            // Check if election is active and within voting period
+            // Check if election is within voting period
             var election = await _context.Elections.FindAsync(electionId);
-            if (election == null || !election.IsActive ||
+            if (election == null ||
                 election.StartDate > DateTime.UtcNow ||
                 election.EndDate < DateTime.UtcNow)
             {

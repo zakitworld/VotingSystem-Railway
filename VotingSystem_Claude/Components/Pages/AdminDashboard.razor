@@ -48,24 +48,24 @@ else
     <div class="container-fluid mt-4">
         <div class="row mb-4">
             <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                     <div>
-                        <h1 class="h2 mb-0">
+                        <h1 class="h2 mb-0 text-wrap">
                             <i class="bi bi-speedometer2 me-2"></i>
                             Administrator Dashboard
                         </h1>
                         <p class="text-muted mb-0">Manage your school voting system</p>
                     </div>
-                    <div>
-                        <button class="btn btn-outline-secondary me-2" @onclick="CycleTheme" title="@ThemeService.Label">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-outline-secondary" @onclick="CycleTheme" title="@ThemeService.Label">
                             <i class="@ThemeService.Icon me-1"></i>
                             @ThemeService.Label
                         </button>
-                        <button class="btn btn-outline-primary me-2" @onclick='() => NavigationManager.NavigateTo("/admin-profile")'>
+                        <button class="btn btn-outline-primary" @onclick='() => NavigationManager.NavigateTo("/admin-profile")'>
                             <i class="bi bi-person-circle me-1"></i>
                             Profile
                         </button>
-                        <button class="btn btn-outline-primary me-2" @onclick="RefreshData">
+                        <button class="btn btn-outline-primary" @onclick="RefreshData">
                             <i class="bi bi-arrow-clockwise me-1"></i>
                             Refresh
                         </button>
@@ -137,7 +137,7 @@ else
                                     {
                                         <small class="text-info">
                                             <i class="bi bi-dot"></i>
-                                            @_votersWhoVoted voted
+                                            @_votersWhoVoted cast ballots
                                         </small>
                                     }
                                 </div>
@@ -182,12 +182,12 @@ else
                                 </div>
                                 <div class="flex-grow-1 ms-3">
                                     <h6 class="text-muted mb-1">Voter Turnout</h6>
-                                    <h3 class="mb-0">@(_voterTurnoutPercentage.ToString("F1"))%</h3>
+                                    <h3 class="mb-0">@(_totalVoters > 0 ? _voterTurnoutPercentage.ToString("F1") : "0.0")%</h3>
                                     @if (_activeElection != null)
                                     {
                                         <small class="text-muted">
                                             <i class="bi bi-dot"></i>
-                                            Current Election
+                                            Live Election
                                         </small>
                                     }
                                 </div>
