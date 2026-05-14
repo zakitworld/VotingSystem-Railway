@@ -1,12 +1,11 @@
-# 🗳️ VotingSystem Claude
+# 🗳️ VotingSystem Railway
 
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Blazor](https://img.shields.io/badge/Framework-Blazor%20Server-purple.svg)](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
+[![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-336791.svg)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A robust, enterprise-grade Digital Voting System built with **.NET 10** and **Blazor Interactive Server**. This system provides a secure, transparent, and user-friendly platform for managing school elections, featuring real-time analytics, automated voter code generation, and comprehensive student management.
-
-![Dashboard Mockup](file:///C:/Users/ZAK%20I.T.%20WORLD/.gemini/antigravity/brain/c61bfdf4-dc6a-4621-89e0-6353c0d7e418/voting_system_dashboard_mockup_1778258073002.png)
+A robust, enterprise-grade Digital Voting System built with **.NET 10** and **Blazor Interactive Server**, optimized for cloud hosting on **Railway**. This system provides a secure, transparent, and user-friendly platform for managing school elections, featuring real-time analytics, automated voter code generation, and comprehensive student management.
 
 ## ✨ Key Features
 
@@ -36,7 +35,8 @@ A robust, enterprise-grade Digital Voting System built with **.NET 10** and **Bl
 
 - **Frontend**: Blazor Interactive Server (Modern Glassmorphism UI)
 - **Backend**: .NET 10 Web API / Services
-- **Database**: Entity Framework Core (SQL Server / SQLite)
+- **Database**: PostgreSQL with Entity Framework Core
+- **Hosting**: Optimized for Railway
 - **Reporting**: EPPlus (Excel), CsvHelper (CSV), iText7 (PDF)
 - **Logging**: Serilog with Console, File, and Seq sinks
 - **Styling**: Bootstrap 5 + Custom Modern CSS
@@ -45,26 +45,36 @@ A robust, enterprise-grade Digital Voting System built with **.NET 10** and **Bl
 
 ### Prerequisites
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- SQL Server (or use SQLite for development)
+- [PostgreSQL](https://www.postgresql.org/download/)
 
 ### Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-repo/VotingSystem_Claude.git
+   git clone https://github.com/zakitworld/VotingSystem-Railway.git
    ```
 2. Navigate to the project directory:
    ```bash
-   cd VotingSystem_Claude/VotingSystem_Claude
+   cd VotingSystem-Railway/VotingSystem_Claude
    ```
-3. Update `appsettings.json` with your connection string.
+3. Update `appsettings.json` with your PostgreSQL connection string.
 4. Run the application:
    ```bash
    dotnet run
    ```
 
+## ☁️ Railway Deployment
+
+This project is pre-configured for Railway deployment.
+
+1. **Create a New Project** on Railway.
+2. **Add a PostgreSQL Database** to your project.
+3. **Connect your GitHub Repo** (this repository).
+4. **Environment Variables**: Railway will automatically provide connection details. Ensure the app uses the `DATABASE_URL` or `ConnectionStrings__DefaultConnection` provided by Railway.
+5. The application will automatically apply migrations and create the necessary tables on the first startup.
+
 ### Default Credentials (Development Mode)
 - **Username**: `admin`
-- **Password**: ``
+- **Password**: `Admin@123456` (or as configured in `SeedData:AdminPassword`)
 *Note: Credentials are reset automatically in Development mode for ease of access.*
 
 ## 📁 Project Structure
@@ -72,7 +82,7 @@ A robust, enterprise-grade Digital Voting System built with **.NET 10** and **Bl
 ```text
 VotingSystem_Claude/
 ├── Components/         # Blazor Components & Pages
-├── Data/               # DB Context & Migrations
+├── Data/               # DB Context & PostgreSQL Migrations
 ├── Models/             # Entity Models
 ├── Services/           # Business Logic & Interfaces
 ├── Middleware/         # Custom Security & Audit Logic
@@ -81,4 +91,4 @@ VotingSystem_Claude/
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE.txt](file:///g:/From%20Desktop/Console_WinUI3_Blazor_MAUI/VotingSystem_Claude/LICENSE.txt) file for details.
+This project is licensed under the MIT License.
