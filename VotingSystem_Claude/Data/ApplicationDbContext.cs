@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Reflection.Emit;
@@ -85,7 +85,7 @@ namespace VotingSystem_Claude.Data
                 entity.Property(e => e.UserId).IsRequired();
                 entity.Property(e => e.Action).IsRequired();
                 entity.Property(e => e.Timestamp).IsRequired();
-                entity.Property(e => e.Details).HasColumnType("nvarchar(max)");
+                entity.Property(e => e.Details).HasColumnType("text");
             });
         }
     }

@@ -31,11 +31,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
     }
 
-    options.UseSqlServer(connectionString,
-        sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
+    options.UseNpgsql(connectionString,
+        npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
             maxRetryCount: 3,
             maxRetryDelay: TimeSpan.FromSeconds(5),
-            errorNumbersToAdd: null));
+            errorCodesToAdd: null));
 });
 
 // Add Identity services with enhanced security
