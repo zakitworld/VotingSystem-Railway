@@ -1,4 +1,4 @@
-﻿@page "/voters"
+@page "/voters"
 @using VotingSystem_Claude.Models
 @using VotingSystem_Claude.Services.Interfaces
 @using System.ComponentModel.DataAnnotations
@@ -48,7 +48,7 @@
             <div class="col-md-6">
                 <div class="input-group">
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
-                    <input type="text" class="form-control" placeholder="Search voters..." @bind="_searchTerm" @oninput="OnSearchChanged" />
+                    <input type="text" class="form-control" placeholder="Search voters..." value="@_searchTerm" @oninput="OnSearchChanged" />
                 </div>
             </div>
             <div class="col-md-6">
@@ -90,7 +90,7 @@
                                 @foreach (var voter in _filteredVoters.Skip((_currentPage - 1) * _pageSize).Take(_pageSize))
                                 {
                                     <tr>
-                                        <td><code class="text-primary">@voter.VoterCode</code></td>
+                                        <td><code class="text-primary">@voter.VoterCode?.Code</code></td>
                                         <td><strong>@voter.Student?.FullName</strong></td>
                                         <td>@voter.Student?.StudentId</td>
                                         <td>@voter.Student?.Class</td>

@@ -231,29 +231,41 @@
                             <strong>Class:</strong> @_voter.Student.Class
                         </div>
 
-                        <h6>Your Selections:</h6>
-                        @if (_selectedCandidates.Any())
+                        <h6 class="mb-3">Your Selections:</h6>
+                        @if (_selectedCandidates.Any(s => s.Value.Any()))
                         {
-                            @foreach (var selection in _selectedCandidates)
-                            {
-                                var position = _election?.Positions?.FirstOrDefault(p => p.Id == selection.Key);
-                                if (position != null)
+                            <div class="list-group list-group-flush">
+                                @foreach (var selection in _selectedCandidates.Where(s => s.Value.Any()))
                                 {
-                                    <div class="mb-2">
-                                        <strong>@position.Title:</strong><br />
-                                        @foreach (var candidateId in selection.Value)
-                                        {
-                                            var candidate = position.Candidates?.FirstOrDefault(c => c.Id == candidateId);
-                                            if (candidate != null)
+                                    var position = _election?.Positions?.FirstOrDefault(p => p.Id == selection.Key);
+                                    if (position != null)
+                                    {
+                                        <div class="list-group-item px-0 py-2 border-0">
+                                            <div class="text-primary fw-bold small text-uppercase" style="font-size: 0.65rem;">@position.Title</div>
+                                            @foreach (var candidateId in selection.Value)
                                             {
-                                                <small class="text-primary">• @candidate.FullName</small>
-                        
-                                                <br />
+                                                var candidate = position.Candidates?.FirstOrDefault(c => c.Id == candidateId);
+                                                if (candidate != null)
+                                                {
+                                                    <div class="d-flex align-items-center mt-1">
+                                                        @if (!string.IsNullOrEmpty(candidate.ImagePath))
+                                                        {
+                                                            <img src="@candidate.ImagePath" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px;">
+                                                                <i class="bi bi-person text-secondary" style="font-size: 0.7rem;"></i>
+                                                            </div>
+                                                        }
+                                                        <span class="small fw-bold">@candidate.FullName</span>
+                                                    </div>
+                                                }
                                             }
-                                        }
-                                    </div>
+                                        </div>
+                                    }
                                 }
-                            }
+                            </div>
                         }
                         else
                         {
@@ -663,34 +675,50 @@
                             
                             <hr />
                             
-                            <h6>Selected Candidates:</h6>
-                            @foreach (var selection in _selectedCandidates.Where(s => s.Value.Any()))
-                            {
-                                var position = _election?.Positions?.FirstOrDefault(p => p.Id == selection.Key);
-                                if (position != null)
+                            <h6 class="mb-3 text-muted small text-uppercase fw-bold">Selected Candidates:</h6>
+                            <div class="row row-cols-1 row-cols-md-2 g-3">
+                                @foreach (var selection in _selectedCandidates.Where(s => s.Value.Any()))
                                 {
-                                    <div class="mb-3">
-                                        <strong class="text-primary">@position.Title:</strong>
-                                        <ul class="list-unstyled ms-3">
-                                            @foreach (var candidateId in selection.Value)
+                                    var position = _election?.Positions?.FirstOrDefault(p => p.Id == selection.Key);
+                                    if (position != null)
+                                    {
+                                        @foreach (var candidateId in selection.Value)
+                                        {
+                                            var candidate = position.Candidates?.FirstOrDefault(c => c.Id == candidateId);
+                                            if (candidate != null)
                                             {
-                                                var candidate = position.Candidates?.FirstOrDefault(c => c.Id == candidateId);
-                                                if (candidate != null)
-                                                {
-                                                    <li class="text-success">
-                                                        <i class="bi bi-check-circle me-1"></i>
-                                                        @candidate.FullName
-                                                        @if (!string.IsNullOrEmpty(candidate.Class))
-                                                        {
-                                                            <small class="text-muted">(@candidate.Class)</small>
-                                                        }
-                                                    </li>
-                                                }
+                                                <div class="col">
+                                                    <div class="card h-100 border-0 shadow-sm bg-body-tertiary overflow-hidden">
+                                                        <div class="d-flex align-items-center p-2">
+                                                            <div class="position-relative me-3">
+                                                                @if (!string.IsNullOrEmpty(candidate.ImagePath))
+                                                                {
+                                                                    <img src="@candidate.ImagePath" class="rounded shadow-sm" style="width: 54px; height: 54px; object-fit: cover;" />
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="bg-white border rounded shadow-sm d-flex align-items-center justify-content-center" style="width: 54px; height: 54px;">
+                                                                        <i class="bi bi-person text-secondary fs-4"></i>
+                                                                    </div>
+                                                                }
+                                                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success p-1 border border-white">
+                                                                    <i class="bi bi-check-lg" style="font-size: 0.6rem;"></i>
+                                                                </span>
+                                                            </div>
+                                                            <div class="overflow-hidden">
+                                                                <div class="text-primary fw-bold" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">@position.Title</div>
+                                                                <div class="fw-bold text-truncate" style="font-size: 0.95rem;">@candidate.FullName</div>
+                                                                <div class="text-muted small">@candidate.Class</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             }
-                                        </ul>
-                                    </div>
+                                        }
+                                    }
                                 }
-                            }
+                            </div>
+
                         </div>
                     </div>
                     

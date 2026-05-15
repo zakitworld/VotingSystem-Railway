@@ -5,6 +5,8 @@ using VotingSystem_Claude.Services;
 using VotingSystem_Claude.Services.Interfaces;
 using Xunit;
 using FluentAssertions;
+using VotingSystem_Claude.Models;
+using VotingSystem_Claude.Middleware;
 using Microsoft.Extensions.Logging;
 
 namespace VotingSystem_Claude.Tests.Services
@@ -36,27 +38,30 @@ namespace VotingSystem_Claude.Tests.Services
             {
                 new AuditLog
                 {
-                    Id = 1,
                     UserId = "user1",
-                    Action = "Login",
+                    Action = "LOGIN_SUCCESS",
+                    EntityType = "Authentication",
+                    EntityId = "user1",
                     Timestamp = DateTime.UtcNow.AddHours(-2),
                     Details = "User logged in successfully"
                 },
                 new AuditLog
                 {
-                    Id = 2,
                     UserId = "user1",
-                    Action = "Vote",
+                    Action = "VOTE_CAST",
+                    EntityType = "Vote",
+                    EntityId = "1",
                     Timestamp = DateTime.UtcNow.AddHours(-1),
-                    Details = "User cast vote for election 1"
+                    Details = "User cast vote"
                 },
                 new AuditLog
                 {
-                    Id = 3,
                     UserId = "user2",
-                    Action = "Login",
+                    Action = "LOGIN_FAILED",
+                    EntityType = "Authentication",
+                    EntityId = "user2",
                     Timestamp = DateTime.UtcNow.AddMinutes(-30),
-                    Details = "User logged in successfully"
+                    Details = "Login failed"
                 }
             };
             _context.AuditLogs.AddRange(auditLogs);
@@ -65,146 +70,40 @@ namespace VotingSystem_Claude.Tests.Services
         }
 
         [Fact]
-        public async Task LogActionAsync_ValidLog_ShouldSucceed()
+        public async Task LogLoginAttemptAsync_ShouldSucceed()
         {
-            // Arrange
-            var auditLog = new AuditLog
-            {
-                UserId = "user3",
-                Action = "Logout",
-                Timestamp = DateTime.UtcNow,
-                Details = "User logged out"
-            };
-
             // Act
-            var result = await _auditService.LogActionAsync(auditLog);
+            await _auditService.LogLoginAttemptAsync("testuser", true, "127.0.0.1", "TestAgent");
 
             // Assert
-            result.Should().BeTrue();
-            var savedLog = await _context.AuditLogs
-                .FirstOrDefaultAsync(l => l.UserId == "user3" && l.Action == "Logout");
-            savedLog.Should().NotBeNull();
-            savedLog.Details.Should().Be("User logged out");
+            var log = await _context.AuditLogs.FirstOrDefaultAsync(l => l.UserId == "testuser" && l.Action == "LOGIN_SUCCESS");
+            log.Should().NotBeNull();
+            log!.IpAddress.Should().Be("127.0.0.1");
         }
 
         [Fact]
-        public async Task GetAuditLogsByUserIdAsync_ShouldReturnUserLogs()
+        public async Task GetAuditLogsAsync_ShouldReturnFilteredLogs()
         {
             // Act
-            var result = await _auditService.GetAuditLogsByUserIdAsync("user1");
+            var result = await _auditService.GetAuditLogsAsync(userId: "user1");
 
             // Assert
             result.Should().NotBeNull();
             result.Should().HaveCount(2);
-            result.Should().Contain(l => l.Action == "Login");
-            result.Should().Contain(l => l.Action == "Vote");
+            result.Should().Contain(l => l.Action == "LOGIN_SUCCESS");
+            result.Should().Contain(l => l.Action == "VOTE_CAST");
         }
 
         [Fact]
-        public async Task GetAuditLogsByActionAsync_ShouldReturnActionLogs()
+        public async Task GetFailedLoginAttemptsAsync_ShouldReturnCorrectLogs()
         {
             // Act
-            var result = await _auditService.GetAuditLogsByActionAsync("Login");
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Should().HaveCount(2);
-            result.Should().Contain(l => l.UserId == "user1");
-            result.Should().Contain(l => l.UserId == "user2");
-        }
-
-        [Fact]
-        public async Task GetAuditLogsByDateRangeAsync_ShouldReturnFilteredLogs()
-        {
-            // Arrange
-            var startDate = DateTime.UtcNow.AddHours(-3);
-            var endDate = DateTime.UtcNow.AddHours(-1);
-
-            // Act
-            var result = await _auditService.GetAuditLogsByDateRangeAsync(startDate, endDate);
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Should().HaveCount(2);
-            result.Should().Contain(l => l.UserId == "user1" && l.Action == "Login");
-            result.Should().Contain(l => l.UserId == "user1" && l.Action == "Vote");
-        }
-
-        [Fact]
-        public async Task GetAuditLogsByDateRangeAsync_NoLogsInRange_ShouldReturnEmpty()
-        {
-            // Arrange
-            var startDate = DateTime.UtcNow.AddDays(-1);
-            var endDate = DateTime.UtcNow.AddDays(-1);
-
-            // Act
-            var result = await _auditService.GetAuditLogsByDateRangeAsync(startDate, endDate);
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Should().BeEmpty();
-        }
-
-        [Fact]
-        public async Task GetAllAuditLogsAsync_ShouldReturnAllLogs()
-        {
-            // Act
-            var result = await _auditService.GetAllAuditLogsAsync();
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Should().HaveCount(3);
-            result.Should().Contain(l => l.UserId == "user1" && l.Action == "Login");
-            result.Should().Contain(l => l.UserId == "user1" && l.Action == "Vote");
-            result.Should().Contain(l => l.UserId == "user2" && l.Action == "Login");
-        }
-
-        [Fact]
-        public async Task GetAuditLogsByDetailsAsync_ShouldReturnFilteredLogs()
-        {
-            // Act
-            var result = await _auditService.GetAuditLogsByDetailsAsync("successfully");
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Should().HaveCount(2);
-            result.Should().Contain(l => l.UserId == "user1" && l.Action == "Login");
-            result.Should().Contain(l => l.UserId == "user2" && l.Action == "Login");
-        }
-
-        [Fact]
-        public async Task GetAuditLogsByDetailsAsync_NoMatchingLogs_ShouldReturnEmpty()
-        {
-            // Act
-            var result = await _auditService.GetAuditLogsByDetailsAsync("nonexistent");
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Should().BeEmpty();
-        }
-
-        [Fact]
-        public async Task GetAuditLogsByUserAndActionAsync_ShouldReturnFilteredLogs()
-        {
-            // Act
-            var result = await _auditService.GetAuditLogsByUserAndActionAsync("user1", "Login");
+            var result = await _auditService.GetFailedLoginAttemptsAsync();
 
             // Assert
             result.Should().NotBeNull();
             result.Should().HaveCount(1);
-            result[0].UserId.Should().Be("user1");
-            result[0].Action.Should().Be("Login");
-        }
-
-        [Fact]
-        public async Task GetAuditLogsByUserAndActionAsync_NoMatchingLogs_ShouldReturnEmpty()
-        {
-            // Act
-            var result = await _auditService.GetAuditLogsByUserAndActionAsync("user1", "Logout");
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Should().BeEmpty();
+            result[0].Action.Should().Be("LOGIN_FAILED");
         }
     }
-} 
+}

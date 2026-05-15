@@ -1,4 +1,4 @@
-﻿@page "/votercodes"
+@page "/votercodes"
 @using VotingSystem_Claude.Models
 @using VotingSystem_Claude.Services
 @using VotingSystem_Claude.Services.Interfaces
@@ -130,7 +130,7 @@
                                 <i class="bi bi-search"></i>
                             </span>
                             <input type="text" class="form-control" placeholder="Search by name, ID, or code..."
-                                   @bind="_searchTerm" @oninput="FilterVoters" />
+                                   value="@_searchTerm" @oninput="HandleSearchInput" />
                         </div>
                     </div>
                     <div class="card-body p-0">
@@ -314,7 +314,8 @@
         {
             // Get all voters with their students
             _voters = await VoterService.GetAllVotersAsync();
-            _filteredVoters = _voters.ToList();
+            FilterVoters();
+
 
             // Calculate statistics
             _totalVotersWithCodes = _voters.Count;
@@ -430,6 +431,12 @@
             _message = $"Error resetting voter status: {ex.Message}";
             _isError = true;
         }
+    }
+
+    private void HandleSearchInput(ChangeEventArgs e)
+    {
+        _searchTerm = e.Value?.ToString() ?? string.Empty;
+        FilterVoters();
     }
 
     private void FilterVoters()

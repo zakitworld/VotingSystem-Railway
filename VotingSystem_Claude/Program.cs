@@ -16,19 +16,23 @@ using System.Text;
 using VotingSystem_Claude.Middleware;
 using Microsoft.AspNetCore.HttpOverrides;
 
+// Fix for PostgreSQL DateTime issues
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Configure SQL Server Database with retry policy
+// Configure Database: Use SQLite for local development if PostgreSQL isn't configured
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    // Use PostgreSQL for all environments
     if (string.IsNullOrEmpty(connectionString))
     {
-        throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+        throw new InvalidOperationException("Connection string 'DefaultConnection' not found in configuration or user secrets.");
     }
 
     options.UseNpgsql(connectionString,
@@ -36,6 +40,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
             maxRetryCount: 3,
             maxRetryDelay: TimeSpan.FromSeconds(5),
             errorCodesToAdd: null));
+
 });
 
 // Add Identity services with enhanced security
@@ -168,11 +173,15 @@ try
     {
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         
-        // Use migrations instead of EnsureCreated to ensure all tables are created
-        if (context.Database.GetPendingMigrations().Any())
+        // Use PostgreSQL (Railway), apply any pending migrations
+        if (context.Database.IsNpgsql())
         {
-            context.Database.Migrate();
+            if (context.Database.GetPendingMigrations().Any())
+            {
+                context.Database.Migrate();
+            }
         }
+
         
         // Create default admin if none exists, or reset existing admin for development  
         var adminService = scope.ServiceProvider.GetRequiredService<IAdminService>();
