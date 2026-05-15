@@ -125,6 +125,7 @@ builder.Services.AddScoped<IElectionService, ElectionService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<ICandidateService, CandidateService>();
 builder.Services.AddScoped<IVotingService, VotingService>();
+builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IResultsService, ResultsService>();
 
 // Register Student Management Services

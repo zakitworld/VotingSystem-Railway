@@ -18,10 +18,37 @@
             else if (LoadingType == "skeleton")
             {
                 <div class="skeleton-loader">
-                    <div class="skeleton-line skeleton-title"></div>
-                    <div class="skeleton-line skeleton-text"></div>
-                    <div class="skeleton-line skeleton-text short"></div>
+                    @if (LoadingType == "voting")
+                    {
+                        <div class="skeleton-voting-header mb-4">
+                            <div class="skeleton-line skeleton-title mb-2"></div>
+                            <div class="skeleton-line skeleton-text"></div>
+                        </div>
+                        <div class="row">
+                            @for (int i = 0; i < 4; i++)
+                            {
+                                <div class="col-md-6 mb-3">
+                                    <div class="skeleton-card p-3 border rounded">
+                                        <div class="d-flex align-items-center">
+                                            <div class="skeleton-circle me-3"></div>
+                                            <div class="flex-grow-1">
+                                                <div class="skeleton-line skeleton-title short mb-2"></div>
+                                                <div class="skeleton-line skeleton-text"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="skeleton-line skeleton-title"></div>
+                        <div class="skeleton-line skeleton-text"></div>
+                        <div class="skeleton-line skeleton-text short"></div>
+                    }
                 </div>
+
             }
             else
             {

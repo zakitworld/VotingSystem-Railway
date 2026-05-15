@@ -1,0 +1,73 @@
+@inject IJSRuntime JSRuntime
+
+@if (Show)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.7); backdrop-filter: blur(8px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg overflow-hidden" style="border-radius: 20px;">
+                <div class="bg-success py-4 text-center text-white position-relative">
+                    <div class="celebration-icon animate-bounce">
+                        <i class="bi bi-check-circle-fill" style="font-size: 5rem;"></i>
+                    </div>
+                </div>
+                <div class="modal-body text-center p-5">
+                    <h2 class="fw-bold mb-2">Vote Submitted!</h2>
+                    <p class="text-muted mb-4">Thank you for participating in the election. Your voice has been heard!</p>
+                    
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-success py-3 fw-bold" @onclick="OnDownloadReceipt">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Download Voting Receipt
+                        </button>
+                        <button class="btn btn-success py-3 fw-bold" @onclick="OnClose">
+                            Return to Home
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnDownloadReceipt { get; set; }
+
+    private bool _confettiTriggered = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Show && !_confettiTriggered)
+        {
+            _confettiTriggered = true;
+            try 
+            {
+                // Small delay to ensure JS is ready
+                await Task.Delay(250);
+                await JSRuntime.InvokeVoidAsync("triggerConfetti");
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Confetti error: {ex.Message}");
+            }
+        }
+        else if (!Show)
+        {
+            _confettiTriggered = false;
+        }
+    }
+}
+
+
+<style>
+    .animate-bounce {
+        animation: bounce 0.8s infinite alternate;
+    }
+
+    @@keyframes bounce {
+        from { transform: translateY(0); }
+        to { transform: translateY(-10px); }
+    }
+
+</style>

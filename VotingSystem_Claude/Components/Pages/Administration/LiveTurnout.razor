@@ -1,0 +1,235 @@
+@page "/admin/live-turnout"
+@using VotingSystem_Claude.Services.Interfaces
+@using VotingSystem_Claude.Models
+@using Microsoft.AspNetCore.Authorization
+@inject IAnalyticsService AnalyticsService
+@inject IElectionService ElectionService
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0"><i class="bi bi-activity text-danger me-2"></i>Live Turnout Monitor</h2>
+            <p class="text-muted">Real-time election participation tracking</p>
+        </div>
+        <div class="d-flex gap-2">
+            @if (_elections.Any())
+            {
+                <select class="form-select w-auto" @bind="_selectedElectionId">
+                    @foreach (var election in _elections)
+                    {
+                        <option value="@election.Id">@election.Title</option>
+                    }
+                </select>
+            }
+            <button class="btn btn-outline-primary" @onclick="RefreshData">
+                <i class="bi bi-arrow-clockwise me-1"></i>Refresh Now
+            </button>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Connecting to live data stream...</p>
+        </div>
+    }
+    else if (_turnoutStats != null)
+    {
+        <div class="row g-4 mb-4">
+            <!-- Summary Cards -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm bg-primary text-white h-100">
+                    <div class="card-body text-center p-4">
+                        <small class="text-white-50 text-uppercase fw-bold">Total Eligible</small>
+                        <h1 class="display-4 fw-bold mb-0">@_turnoutStats.TotalEligibleVoters</h1>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm bg-success text-white h-100">
+                    <div class="card-body text-center p-4">
+                        <small class="text-white-50 text-uppercase fw-bold">Votes Cast</small>
+                        <h1 class="display-4 fw-bold mb-0">@_turnoutStats.TotalVotesCast</h1>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <small class="text-muted text-uppercase fw-bold">Turnout Rate</small>
+                        <h1 class="display-4 fw-bold mb-0 text-primary">@_turnoutStats.TurnoutPercentage.ToString("F1")%</h1>
+                        <div class="progress mt-2" style="height: 10px;">
+                            <div class="progress-bar bg-primary" style="width: @_turnoutStats.TurnoutPercentage%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <small class="text-muted text-uppercase fw-bold">Active Now</small>
+                        <h1 class="display-4 fw-bold mb-0 text-danger animate-pulse">@_realTimeStats?.ActiveVoters</h1>
+                        <small class="text-danger"><i class="bi bi-dot"></i> Live Activity</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Activity Timeline -->
+            <div class="col-md-8">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 py-3">
+                        <h5 class="mb-0 fw-bold">Recent Activity</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_realTimeStats?.RecentActivity.Any() == true)
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var activity in _realTimeStats.RecentActivity.OrderByDescending(a => a.Timestamp).Take(8))
+                                {
+                                    <div class="list-group-item px-0 border-0 mb-2">
+                                        <div class="d-flex align-items-center">
+                                            <div class="activity-dot bg-success me-3"></div>
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="fw-bold">New Vote Cast</span>
+                                                    <small class="text-muted">@GetTimeAgo(activity.Timestamp)</small>
+                                                </div>
+                                                <small class="text-muted">Position: @activity.Position | Candidate: @activity.Candidate</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center p-5 text-muted">
+                                <i class="bi bi-clock-history display-4 mb-3 d-block"></i>
+                                Waiting for incoming votes...
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Distribution -->
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 py-3">
+                        <h5 class="mb-0 fw-bold">Participation by Class</h5>
+                    </div>
+                    <div class="card-body">
+                        @foreach (var entry in _turnoutStats.TurnoutByLocation)
+                        {
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="small fw-bold">@entry.Key</span>
+                                    <span class="small text-muted">@entry.Value votes</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-info" style="width: @(GetPercentageOfTotal(entry.Value))%"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Election> _elections = new();
+    private int _selectedElectionId;
+    private VoterTurnoutStats? _turnoutStats;
+    private RealTimeStats? _realTimeStats;
+    private bool _loading = true;
+    private Timer? _refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _elections = await ElectionService.GetAllElectionsAsync();
+        if (_elections.Any())
+        {
+            _selectedElectionId = _elections.First().Id;
+            await RefreshData();
+            
+            // Auto-refresh every 10 seconds
+            _refreshTimer = new Timer(async _ => await InvokeAsync(async () => {
+                await RefreshData();
+                StateHasChanged();
+            }), null, 10000, 10000);
+        }
+        else
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        if (_selectedElectionId == 0) return;
+        
+        try
+        {
+            _turnoutStats = await AnalyticsService.GetVoterTurnoutStatsAsync(_selectedElectionId);
+            _realTimeStats = await AnalyticsService.GetRealTimeStatsAsync(_selectedElectionId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing live data: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private double GetPercentageOfTotal(int count)
+    {
+        if (_turnoutStats == null || _turnoutStats.TotalVotesCast == 0) return 0;
+        return (count / (double)_turnoutStats.TotalVotesCast) * 100;
+    }
+
+    private string GetTimeAgo(DateTime timestamp)
+    {
+        var diff = DateTime.UtcNow - timestamp;
+        if (diff.TotalSeconds < 60) return "Just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        return $"{(int)diff.TotalHours}h ago";
+    }
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}
+
+<style>
+    .activity-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        box-shadow: 0 0 8px var(--bs-success);
+    }
+    
+    .animate-pulse {
+        animation: pulse 2s infinite;
+    }
+    
+    @@keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.6; }
+        100% { opacity: 1; }
+    }
+    
+    @@keyframes bounce {
+        from { transform: translateY(0); }
+        to { transform: translateY(-10px); }
+    }
+</style>

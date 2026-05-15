@@ -85,30 +85,35 @@ namespace VotingSystem_Claude.Services
             {
                 var votes = await _context.Votes
                     .Where(v => v.ElectionId == electionId)
+                    .Include(v => v.Voter)
+                    .ThenInclude(vr => vr.Student)
                     .ToListAsync();
+
+                var uniqueVotersCount = votes.Select(v => v.VoterId).Distinct().Count();
+                var totalEligible = await _context.Voters.CountAsync();
 
                 var stats = new VoterTurnoutStats
                 {
-                    TotalEligibleVoters = await _context.Voters.CountAsync(),
-                    TotalVotesCast = votes.Count,
-                    TurnoutPercentage = votes.Count * 100.0 / await _context.Voters.CountAsync(),
+                    TotalEligibleVoters = totalEligible,
+                    TotalVotesCast = uniqueVotersCount,
+                    TurnoutPercentage = totalEligible > 0 ? (uniqueVotersCount * 100.0 / totalEligible) : 0,
                     HourlyTurnout = new Dictionary<DateTime, int>(),
                     TurnoutByLocation = new Dictionary<string, int>()
                 };
 
-                // Calculate hourly turnout
-                var hourlyVotes = votes
+                // Calculate hourly turnout (unique voters per hour)
+                stats.HourlyTurnout = votes
+                    .GroupBy(v => v.VoterId)
+                    .Select(g => g.First())
                     .GroupBy(v => v.Timestamp.Date.AddHours(v.Timestamp.Hour))
                     .ToDictionary(g => g.Key, g => g.Count());
 
-                stats.HourlyTurnout = hourlyVotes;
-
-                // Calculate turnout by location (if location data is available)
-                var locationVotes = votes
-                    .GroupBy(v => v.Location ?? "Unknown")
+                // Calculate turnout by Class (using Student info)
+                stats.TurnoutByLocation = votes
+                    .GroupBy(v => v.VoterId)
+                    .Select(g => g.First())
+                    .GroupBy(v => v.Voter?.Student?.Class ?? "Unknown")
                     .ToDictionary(g => g.Key, g => g.Count());
-
-                stats.TurnoutByLocation = locationVotes;
 
                 return stats;
             }
@@ -118,6 +123,7 @@ namespace VotingSystem_Claude.Services
                 throw;
             }
         }
+
 
         public async Task<List<VoterDemographics>> GetVoterDemographicsAsync(int electionId)
         {
@@ -171,10 +177,16 @@ namespace VotingSystem_Claude.Services
                     .Where(v => v.ElectionId == electionId)
                     .ToListAsync();
 
+                var recentUniqueVoters = votes
+                    .Where(v => v.Timestamp >= oneHourAgo)
+                    .Select(v => v.VoterId)
+                    .Distinct()
+                    .Count();
+
                 var stats = new RealTimeStats
                 {
-                    ActiveVoters = votes.Count(v => v.Timestamp >= oneHourAgo),
-                    VotesCastInLastHour = votes.Count(v => v.Timestamp >= oneHourAgo),
+                    ActiveVoters = recentUniqueVoters,
+                    VotesCastInLastHour = recentUniqueVoters,
                     CurrentVotesByPosition = new Dictionary<string, int>(),
                     RecentActivity = new List<VotingActivity>()
                 };
@@ -192,13 +204,16 @@ namespace VotingSystem_Claude.Services
                 // Get recent voting activity
                 stats.RecentActivity = votes
                     .OrderByDescending(v => v.Timestamp)
+                    .Take(20) // Get more to find unique voter entries
+                    .GroupBy(v => v.VoterId)
+                    .Select(g => g.First())
                     .Take(10)
                     .Select(v => new VotingActivity
                     {
                         Timestamp = v.Timestamp,
-                        Position = positions.FirstOrDefault(p => p.Id == v.PositionId)?.Title ?? "Unknown",
-                        Candidate = _context.Candidates.FirstOrDefault(c => c.Id == v.CandidateId)?.FullName ?? "Unknown",
-                        Location = v.Location ?? "Unknown"
+                        Position = positions.FirstOrDefault(p => p.Id == v.PositionId)?.Title ?? "Ballot Submitted",
+                        Candidate = _context.Candidates.FirstOrDefault(c => c.Id == v.CandidateId)?.FullName ?? "N/A",
+                        Location = v.Location ?? "Web"
                     })
                     .ToList();
 
@@ -210,6 +225,7 @@ namespace VotingSystem_Claude.Services
                 throw;
             }
         }
+
 
         public async Task<VotingProgress> GetVotingProgressAsync(int electionId)
         {

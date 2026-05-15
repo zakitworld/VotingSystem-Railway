@@ -22,9 +22,10 @@
         })();
     </script>
     <script>
-        window.downloadFile = (fileName, contentType, content) => {
-            const blazorBlob = new Blob([content], { type: contentType });
-            const url = URL.createObjectURL(blazorBlob);
+        window.downloadFileFromStream = async (fileName, contentStreamReference) => {
+            const arrayBuffer = await contentStreamReference.arrayBuffer();
+            const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
             const anchorElement = document.createElement('a');
             anchorElement.href = url;
             anchorElement.download = fileName ?? '';
@@ -33,7 +34,25 @@
             URL.revokeObjectURL(url);
         };
     </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.9.3/confetti.browser.min.js"></script>
+    <script>
+        window.triggerConfetti = () => {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 200,
+                    spread: 90,
+                    origin: { y: 0.6 },
+                    zIndex: 20000,
+                    colors: ['#198754', '#20c997', '#0d6efd', '#ffc107', '#ffffff']
+                });
+            }
+        };
+    </script>
 </head>
+
+
+
 
 <body>
     <Routes @rendermode="InteractiveServer" />
@@ -41,6 +60,8 @@
     <script src="@Assets["lib/bootstrap/dist/js/bootstrap.bundle.min.js"]"></script>
     <script src="@Assets["js/dropdown.js"]"></script>
     <script src="@Assets["js/theme.js"]"></script>
+
+
 </body>
 
 </html>

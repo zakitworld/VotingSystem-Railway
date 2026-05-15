@@ -1,0 +1,59 @@
+@using VotingSystem_Claude.Models
+
+@if (Show)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <button type="button" class="btn-close" @onclick="OnClose"></button>
+                </div>
+                <div class="modal-body text-center pt-0">
+                    <div class="mb-4">
+                        @if (!string.IsNullOrEmpty(Candidate.ImagePath))
+                        {
+                            <img src="@Candidate.ImagePath" 
+                                 alt="@Candidate.FullName" 
+                                 class="rounded-circle shadow-lg border border-4 border-white" 
+                                 style="width: 150px; height: 150px; object-fit: cover; margin-top: -75px;" />
+                        }
+                        else
+                        {
+                            <div class="bg-primary text-white rounded-circle shadow-lg border border-4 border-white d-inline-flex align-items-center justify-content-center" 
+                                 style="width: 150px; height: 150px; margin-top: -75px;">
+                                <i class="bi bi-person" style="font-size: 5rem;"></i>
+                            </div>
+                        }
+                    </div>
+                    
+                    <h3 class="fw-bold mb-1">@Candidate.FullName</h3>
+                    <div class="badge bg-primary-subtle text-primary text-uppercase px-3 py-2 mb-3" style="letter-spacing: 1px;">
+                        @PositionTitle
+                    </div>
+                    
+                    @if (!string.IsNullOrEmpty(Candidate.Class))
+                    {
+                        <p class="text-muted mb-4"><i class="bi bi-mortarboard me-2"></i>Class: @Candidate.Class</p>
+                    }
+                    
+                    <div class="text-start p-4 bg-light rounded-4">
+                        <h6 class="fw-bold text-uppercase small text-muted mb-3">Manifesto Summary</h6>
+                        <p class="mb-0" style="line-height: 1.6; font-size: 1.05rem;">
+                            @(string.IsNullOrEmpty(Candidate.ManifestoSummary) ? "No manifesto provided." : Candidate.ManifestoSummary)
+                        </p>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4">
+                    <button type="button" class="btn btn-primary w-100 py-2 fw-bold" @onclick="OnClose">Close Profile</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public Candidate Candidate { get; set; } = new();
+    [Parameter] public string PositionTitle { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnClose { get; set; }
+}

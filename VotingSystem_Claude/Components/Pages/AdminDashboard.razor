@@ -280,6 +280,14 @@ else
                                     </button>
                                 </div>
                                 <div class="col-md-6 col-lg-3">
+                                    <button class="btn btn-outline-danger w-100 h-100 d-flex flex-column align-items-center justify-content-center p-4" 
+                                            @onclick="NavigateToLiveTurnout">
+                                        <i class="bi bi-activity fs-1 mb-2"></i>
+                                        <span class="fw-semibold">Live Monitor</span>
+                                        <small class="text-muted">Real-time turnout</small>
+                                    </button>
+                                </div>
+                                <div class="col-md-6 col-lg-3">
                                     <button class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center p-4" 
                                             @onclick="NavigateToVoterCodes">
                                         <i class="bi bi-qr-code fs-1 mb-2"></i>
@@ -303,6 +311,7 @@ else
                                         <small class="text-muted">Student database</small>
                                     </button>
                                 </div>
+
                             </div>
                         </div>
                     </div>
@@ -524,6 +533,12 @@ else
     {
         NavigationManager.NavigateTo("/students");
     }
+
+    private void NavigateToLiveTurnout()
+    {
+        NavigationManager.NavigateTo("/admin/live-turnout");
+    }
+
 
     private void ManageElection(int electionId)
     {
