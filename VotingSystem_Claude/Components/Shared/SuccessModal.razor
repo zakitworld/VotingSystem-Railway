@@ -42,10 +42,8 @@
             _confettiTriggered = true;
             try 
             {
-                // Small delay to ensure JS is ready
-                await Task.Delay(250);
+                // JS function now handles the wait internally
                 await JSRuntime.InvokeVoidAsync("triggerConfetti");
-
             }
             catch (Exception ex)
             {
